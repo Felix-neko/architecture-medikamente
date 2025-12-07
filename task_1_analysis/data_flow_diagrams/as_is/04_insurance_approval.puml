@@ -1,0 +1,50 @@
+@startuml
+' Диаграмма потока данных: Согласование процедуры со страховой компанией
+left to right direction
+title DFD: Согласование процедуры со страховой компанией
+
+skinparam rectangle {
+  BackgroundColor #FFCCCC
+}
+skinparam database {
+  BackgroundColor #CCE5FF
+}
+
+' Участники (человечки)
+actor "Пациент" as patient
+actor "Администратор" as admin
+actor "Сотрудник\nстраховой" as insurer
+actor "Бухгалтер" as accountant
+
+' Хранилища данных (базы данных)
+database "Мед. карта пациента\n(сетевая папка)" as med_card
+database "ЛК партнёра\nна портале\nстраховой" as insurance_portal
+database "{дата}/{специалист}.xlsx\nжурнал записей" as schedule_db
+
+' Процессы (прямоугольники)
+rectangle "Запрос на\nсогласование" as request
+rectangle "Формирование\nзаявки" as create_claim
+rectangle "Автоматическое\nсогласование" as auto_approve
+rectangle "Ручное\nсогласование" as manual_approve
+rectangle "Обработка\nрешения" as process_decision
+rectangle "Сверка\nоплаты" as reconciliation
+
+' Потоки данных
+patient --> admin : Запрос о покрытии\nпо ДМС
+admin --> med_card : Запрос выписок
+med_card --> create_claim : История болезни,\nрезультаты анализов
+admin --> create_claim : Данные о процедуре
+create_claim --> insurance_portal : Заявка на\nсогласование
+insurance_portal --> auto_approve : Простые заявки
+insurance_portal --> insurer : Сложные заявки
+insurer --> manual_approve : Решение
+auto_approve --> insurance_portal : Гарант. письмо
+manual_approve --> insurance_portal : Решение\n(согласовано/отказ)
+insurance_portal --> admin : Уведомление,\nгарант. письмо
+admin --> process_decision : Результат согласования
+process_decision --> schedule_db : Пометка об оплате\nпо ДМС
+accountant --> reconciliation : Проверка
+admin --> reconciliation : Данные ЛК
+reconciliation --> insurance_portal : Статус оплаты
+
+@enduml

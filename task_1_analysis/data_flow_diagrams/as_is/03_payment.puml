@@ -1,0 +1,49 @@
+@startuml
+' Диаграмма потока данных: Оплата медицинских процедур
+left to right direction
+title DFD: Оплата медицинских процедур самим пациентом
+
+skinparam rectangle {
+  BackgroundColor #FFCCCC
+}
+skinparam database {
+  BackgroundColor #CCE5FF
+}
+
+' Участники (человечки)
+actor "Пациент" as patient
+actor "Администратор\nрегистратуры" as admin
+actor "Кассир" as cashier
+
+' Хранилища данных
+database "Журнал записей" as schedule_db
+database "Папка МК пациента" as med_card_folder
+database "1С:Бухгалтерия" as accounting
+
+' Внешние системы
+database "Кассовый\nаппарат" as cash_register
+
+' Процессы (прямоугольники)
+rectangle "Поиск записи\nпациента" as find_booking
+rectangle "Печать\nталона" as print_ticket
+rectangle "Ввод данных\nоб оплате" as enter_payment
+rectangle "Проведение\nплатежа" as process_payment
+
+' Потоки данных
+patient --> admin: Инициирует\nоплату
+admin <--> find_booking : Запрос записи пациента
+find_booking <-- schedule_db : Данные о записях к специалисту\nза такой-то день
+admin --> print_ticket: ФИО пациента, номер записи,\nспециалист, дата, цена
+print_ticket --> patient: Талон на оплату
+
+patient --> cashier : Талон на оплату
+cashier --> enter_payment : Услуга, код, цена
+enter_payment --> accounting : Данные платежа
+accounting .. cash_register: 1С сообщает КЭ сумму и реквизиты,\nКЭ сообщает 1С статус проводки
+enter_payment --> cash_register : Сумма, реквизиты
+patient --> process_payment : Оплата\n(карта/наличные/QR)
+process_payment --> cash_register : Платёж
+cash_register --> patient : Чек
+cashier --> med_card_folder: Пометка об оплате записи
+
+@enduml

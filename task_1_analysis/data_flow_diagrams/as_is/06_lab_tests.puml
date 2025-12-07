@@ -1,0 +1,54 @@
+@startuml
+' Диаграмма потока данных: Сдача лабораторных анализов
+left to right direction
+title DFD: Сдача лабораторных анализов
+
+skinparam rectangle {
+  BackgroundColor #FFCCCC
+}
+skinparam rectangle<<external>> {
+  BackgroundColor #E0E0E0
+}
+
+skinparam database {
+  BackgroundColor #CCE5FF
+}
+skinparam database<<external>> {
+  BackgroundColor #E0E0E0
+}
+
+' Участники (человечки)
+actor "Пациент" as patient
+actor "Медсестра\nпроцедурной" as nurse
+actor "Сотрудники\nлаборатории-партнёра" as lab_staff
+
+' Хранилища данных (базы данных)
+database "Общая\nинформация\nо пациенте" as patient_info
+database "БД лаборатории-\nпартнёра" <<external>> as lab_db
+database "Медицинская\nкарта пациента" as med_card
+
+' Процессы (прямоугольники)
+rectangle "Открыть и проверить\nнаправление" as open_and_check_referral
+rectangle "Создание заказа\nв лабораторию\nчерез ЛК партнёра" as create_order
+'rectangle "Передача\nв лабораторию" as transfer
+rectangle "Обработка\nи результаты" <<external>> as process_results
+
+' Потоки данных
+patient --> nurse : Направление\nна анализы
+patient --> nurse: Биоматериал
+nurse --> open_and_check_referral: Направление пациента
+open_and_check_referral <-- patient_info : Данные пациента
+open_and_check_referral <-- med_card : Направление,\nсписок анализов\nпометка об оплате по ДМС
+nurse --> create_order: ФИО и данные пациента,\n виды анализов
+'referral_file --> create_order : Список анализов
+create_order --> lab_db : Заявка на анализы\nс данными пациента
+create_order --> nurse : Штрих-коды\nдля пробирок
+nurse --> med_card : Пометка: анализы взяты,\n№ заявки
+'take_samples --> transfer : Пробирки\nсо штрих-кодами
+nurse --> lab_staff : Биоматериалы\nсо штрих-кодом
+lab_staff --> process_results : Анализ образцов
+process_results --> lab_db: Результаты анализов
+process_results --> patient : Результаты\n(email)
+process_results --> med_card : Результаты\n(email)
+
+@enduml
