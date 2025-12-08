@@ -15,8 +15,8 @@ actor "Пациент" as patient
 actor "Врач" as doctor
 
 ' Хранилища данных (базы данных)
-database "{дата}/{специалист}.xlsx\nжурнал записей" as schedule_db
-database "{фио_пациента}/\nмед. карта\n(сетевая папка)" as med_card
+database "журнал записей\n(в сетевой папке)" as schedule_db
+database "мед. карта\n(сетевая папка)" as med_card
 
 ' Процессы (прямоугольники)
 rectangle "Отметка о\nприёме" as mark_visit
@@ -30,9 +30,9 @@ doctor --> mark_visit : ФИО пациента
 mark_visit --> schedule_db : Пометка:\nприём состоялся
 doctor --> conduct_visit : Осмотр пациента
 conduct_visit --> document_results : Симптомы, диагноз,\nназначения
-document_results --> med_card : Новый файл:\nописание приёма
-conduct_visit --> med_card : Результаты диагностики\n(рентген, УЗИ, ЭКГ)
+document_results --> med_card : описание приёма,\nдиагноз, назначения,\nдоп. файлы диагностики (УЗИ, ЭКГ и др.)\n
+
 doctor --> prescription : Назначение\nрецептурных препаратов
-prescription --> patient : Бумажный\nрецепт
+prescription --> patient : Лист назначений,\nбумажный рецепт
 
 @enduml
