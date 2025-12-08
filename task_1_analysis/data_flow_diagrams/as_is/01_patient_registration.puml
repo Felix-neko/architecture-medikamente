@@ -3,11 +3,34 @@
 left to right direction
 title DFD: Регистрация пациента
 
+' Определяем process как прямоугольник
+!define process rectangle
+
+' -----------------------------------------------------------
+' НАСТРОЙКИ СТИЛЕЙ
+' -----------------------------------------------------------
+
+' 1. Стиль ПО УМОЛЧАНИЮ для всех rectangle (наши Процессы)
+' Мы делаем его красным и скругленным.
 skinparam rectangle {
-  BackgroundColor #FFCCCC
+    RoundCorner 20
+    BackgroundColor #FFCCCC
+    BorderColor Black
 }
+
+' 2. Стиль для Внешних процессов
+skinparam rectangle<<external_process>> {
+    RoundCorner 20
+    BackgroundColor #E0E0E0
+    BorderColor Black
+}
+
+' Настройки баз данных
 skinparam database {
-  BackgroundColor #CCE5FF
+    BackgroundColor #CCE5FF
+}
+skinparam database<<external>> {
+    BackgroundColor #E0E0E0
 }
 
 ' Участники (человечки)
@@ -18,11 +41,13 @@ actor "Администратор\nрегистратуры" as admin
 database "список\nпациентов" as patients_db
 database "файл с общей\nинформацией\nо пациенте в его МК" as patient_folder
 
-' Процессы (прямоугольники)
-rectangle "Поиск пациента\nв базе" as search_process
-rectangle "Заполнение\nанкеты" as fill_form
-rectangle "Создание\n МК пациента" as create_card
-rectangle "Добавление в\nсписок пациентов" as add_new
+' -----------------------------------------------------------
+' ПРОЦЕССЫ
+' -----------------------------------------------------------
+process "Поиск пациента\nв базе" as search_process
+process "Заполнение\nанкеты" as fill_form
+process "Создание\n МК пациента" as create_card
+process "Добавление в\nсписок пациентов" as add_new
 
 ' Потоки данных
 patient --> admin : Паспорт, ФИО,\nконтактные данные
