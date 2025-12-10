@@ -1,0 +1,113 @@
+<mxfile host="app.diagrams.net" modified="2024-01-01T00:00:00.000Z" agent="Mozilla/5.0" version="22.1.0" type="device">
+  <diagram name="Ishikawa" id="ishikawa-migration">
+    <mxGraphModel dx="1434" dy="780" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1169" pageHeight="827" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+        
+        <!-- Заголовок -->
+        <mxCell id="title" value="Диаграмма Исикавы: Узкие места при миграции системы «Медикаменте»" style="text;html=1;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;whiteSpace=wrap;rounded=0;fontSize=16;fontStyle=1" vertex="1" parent="1">
+          <mxGeometry x="284" y="20" width="600" height="30" as="geometry" />
+        </mxCell>
+        
+        <!-- Хребет (главная линия) -->
+        <mxCell id="spine" value="" style="endArrow=classic;html=1;strokeWidth=3;strokeColor=#333333;" edge="1" parent="1">
+          <mxGeometry width="50" height="50" relative="1" as="geometry">
+            <mxPoint x="100" y="400" as="sourcePoint" />
+            <mxPoint x="900" y="400" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        
+        <!-- Голова рыбы (проблема) -->
+        <mxCell id="problem" value="&lt;b&gt;УЗКИЕ МЕСТА&lt;br&gt;ПРИ МИГРАЦИИ&lt;/b&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FF6B6B;strokeColor=#B85450;fontColor=#FFFFFF;fontSize=14;" vertex="1" parent="1">
+          <mxGeometry x="900" y="360" width="150" height="80" as="geometry" />
+        </mxCell>
+        
+        <!-- Категория: ДАННЫЕ -->
+        <mxCell id="data" value="&lt;b&gt;ДАННЫЕ&lt;/b&gt;" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#FFE066;strokeColor=#D6B656;fontSize=12;" vertex="1" parent="1">
+          <mxGeometry x="200" y="150" width="100" height="40" as="geometry" />
+        </mxCell>
+        <mxCell id="data_line" value="" style="endArrow=none;html=1;strokeWidth=2;strokeColor=#D6B656;" edge="1" parent="1">
+          <mxGeometry width="50" height="50" relative="1" as="geometry">
+            <mxPoint x="250" y="190" as="sourcePoint" />
+            <mxPoint x="350" y="400" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="data_issues" value="• Качество данных в Excel&lt;br&gt;• Дубликаты и опечатки&lt;br&gt;• Отсутствие связей (FK)&lt;br&gt;• Разные кодировки&lt;br&gt;• Целостность МК" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=top;whiteSpace=wrap;rounded=0;fontSize=10;" vertex="1" parent="1">
+          <mxGeometry x="310" y="80" width="150" height="80" as="geometry" />
+        </mxCell>
+        
+        <!-- Категория: ИНФРАСТРУКТУРА -->
+        <mxCell id="infra" value="&lt;b&gt;ИНФРАСТРУКТУРА&lt;/b&gt;" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#66D9EF;strokeColor=#3399FF;fontSize=12;" vertex="1" parent="1">
+          <mxGeometry x="400" y="150" width="120" height="40" as="geometry" />
+        </mxCell>
+        <mxCell id="infra_line" value="" style="endArrow=none;html=1;strokeWidth=2;strokeColor=#3399FF;" edge="1" parent="1">
+          <mxGeometry width="50" height="50" relative="1" as="geometry">
+            <mxPoint x="460" y="190" as="sourcePoint" />
+            <mxPoint x="500" y="400" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="infra_issues" value="• Сетевая связность&lt;br&gt;• Пропускная способность&lt;br&gt;• Отказоустойчивость K8s&lt;br&gt;• Резервное копирование&lt;br&gt;• Мониторинг" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=top;whiteSpace=wrap;rounded=0;fontSize=10;" vertex="1" parent="1">
+          <mxGeometry x="520" y="80" width="150" height="80" as="geometry" />
+        </mxCell>
+        
+        <!-- Категория: ИНТЕГРАЦИЯ -->
+        <mxCell id="integration" value="&lt;b&gt;ИНТЕГРАЦИЯ&lt;/b&gt;" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#A6E22E;strokeColor=#82B366;fontSize=12;" vertex="1" parent="1">
+          <mxGeometry x="620" y="150" width="100" height="40" as="geometry" />
+        </mxCell>
+        <mxCell id="integration_line" value="" style="endArrow=none;html=1;strokeWidth=2;strokeColor=#82B366;" edge="1" parent="1">
+          <mxGeometry width="50" height="50" relative="1" as="geometry">
+            <mxPoint x="670" y="190" as="sourcePoint" />
+            <mxPoint x="700" y="400" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="integration_issues" value="• 1С → клиент-сервер&lt;br&gt;• API лаборатории&lt;br&gt;• API страховой&lt;br&gt;• ККМ интеграция&lt;br&gt;• AD Federation" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=top;whiteSpace=wrap;rounded=0;fontSize=10;" vertex="1" parent="1">
+          <mxGeometry x="720" y="80" width="130" height="80" as="geometry" />
+        </mxCell>
+        
+        <!-- Категория: ПЕРСОНАЛ -->
+        <mxCell id="people" value="&lt;b&gt;ПЕРСОНАЛ&lt;/b&gt;" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#FD971F;strokeColor=#D79B00;fontSize=12;" vertex="1" parent="1">
+          <mxGeometry x="200" y="610" width="100" height="40" as="geometry" />
+        </mxCell>
+        <mxCell id="people_line" value="" style="endArrow=none;html=1;strokeWidth=2;strokeColor=#D79B00;" edge="1" parent="1">
+          <mxGeometry width="50" height="50" relative="1" as="geometry">
+            <mxPoint x="250" y="610" as="sourcePoint" />
+            <mxPoint x="350" y="400" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="people_issues" value="• Обучение сотрудников&lt;br&gt;• Сопротивление изменениям&lt;br&gt;• Нехватка DevOps&lt;br&gt;• Врачи и медсёстры&lt;br&gt;• Бизнес-аналитик" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=top;whiteSpace=wrap;rounded=0;fontSize=10;" vertex="1" parent="1">
+          <mxGeometry x="310" y="650" width="160" height="80" as="geometry" />
+        </mxCell>
+        
+        <!-- Категория: ПРОЦЕССЫ -->
+        <mxCell id="process" value="&lt;b&gt;ПРОЦЕССЫ&lt;/b&gt;" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#AE81FF;strokeColor=#9673A6;fontSize=12;" vertex="1" parent="1">
+          <mxGeometry x="430" y="610" width="100" height="40" as="geometry" />
+        </mxCell>
+        <mxCell id="process_line" value="" style="endArrow=none;html=1;strokeWidth=2;strokeColor=#9673A6;" edge="1" parent="1">
+          <mxGeometry width="50" height="50" relative="1" as="geometry">
+            <mxPoint x="480" y="610" as="sourcePoint" />
+            <mxPoint x="500" y="400" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="process_issues" value="• Параллельная работа&lt;br&gt;• Простой при миграции&lt;br&gt;• Валидация данных&lt;br&gt;• План отката&lt;br&gt;• Документирование" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=top;whiteSpace=wrap;rounded=0;fontSize=10;" vertex="1" parent="1">
+          <mxGeometry x="540" y="650" width="140" height="80" as="geometry" />
+        </mxCell>
+        
+        <!-- Категория: БЕЗОПАСНОСТЬ -->
+        <mxCell id="security" value="&lt;b&gt;БЕЗОПАСНОСТЬ&lt;/b&gt;" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#F92672;strokeColor=#B20000;fontColor=#FFFFFF;fontSize=12;" vertex="1" parent="1">
+          <mxGeometry x="640" y="610" width="110" height="40" as="geometry" />
+        </mxCell>
+        <mxCell id="security_line" value="" style="endArrow=none;html=1;strokeWidth=2;strokeColor=#B20000;" edge="1" parent="1">
+          <mxGeometry width="50" height="50" relative="1" as="geometry">
+            <mxPoint x="695" y="610" as="sourcePoint" />
+            <mxPoint x="700" y="400" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="security_issues" value="• Доступ при миграции&lt;br&gt;• Шифрование переноса&lt;br&gt;• Аудит миграции&lt;br&gt;• Удаление старых данных&lt;br&gt;• Временные копии" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=top;whiteSpace=wrap;rounded=0;fontSize=10;" vertex="1" parent="1">
+          <mxGeometry x="760" y="650" width="150" height="80" as="geometry" />
+        </mxCell>
+        
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>

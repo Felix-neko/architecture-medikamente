@@ -4,6 +4,7 @@
 ' Стили для разделения собственной разработки и third-party
 AddElementTag("third-party", $bgColor="#f5f5f5", $borderColor="DarkGray", $fontColor="Black", $legendText="Компоненты сторонних производителей")
 AddElementTag("custom", $bgColor="#438DD5", $borderColor="#3C7FC0", $fontColor="white", $legendText="Собственная разработка")
+AddElementTag("parent-company", $bgColor="#FFE4B5", $borderColor="#D2691E", $fontColor="Black", $legendText="Сервисы материнской компании")
 
 title C4 Container Diagram: МЕДИКАМЕНТЕ (TO-BE)
 
@@ -49,8 +50,10 @@ System_Boundary(k8s, "Kubernetes Cluster (Selectel)") {
     ' Analytics layer (third-party)
     Container(kafka, "Kafka", "Message Broker", "Топики CDC-событий", $tags="third-party")
     Container(debezium, "Debezium", "CDC Connector", "Захват изменений из PostgreSQL", $tags="third-party")
+    Container(airflow, "Apache Airflow", "Workflow Orchestration", "ETL-пайплайны: CDC → токенизация → DLP → ClickHouse", $tags="third-party")
     ContainerDb(clickhouse, "ClickHouse", "Analytics DB", "Слои: raw_sources, tokenized, dlp_approved", $tags="third-party")
     Container(openmetadata, "OpenMetadata", "Data Catalog", "Теги: pii, extra_protected, med_record, dlp_needed", $tags="third-party")
+    Container(classification_engine, "Classification Engine", "Python/Spark", "ML-классификатор ПДн, интеграция с DLP", $tags="custom")
 }
 
 ' Сервисы вне Kubernetes
@@ -68,6 +71,12 @@ Container(kkm, "ККМ", "Hardware", "Контрольно-кассовые ма
 ' Внешние системы
 System_Ext(laboratory, "Laboratory", "Лаборатория-партнёр")
 System_Ext(insurance, "Insurance Portal", "Страховая компания (ДМС)")
+
+' Сервисы материнской компании (SOC)
+System_Boundary(parent_soc, "SOC материнской компании") {
+    Container(maxpatrol, "MaxPatrol SIEM", "Positive Technologies", "Сбор событий ИБ, корреляция, инциденты", $tags="parent-company")
+    Container(infowatch, "InfoWatch Traffic Monitor", "DLP System", "Контроль утечек данных, сканирование контента", $tags="parent-company")
+}
 
 ' === СВЯЗИ ===
 
@@ -112,10 +121,14 @@ Rel(auth_proxy, elastic, "Логи запросов", "HTTP")
 Rel(crm_db, debezium, "CDC", "PostgreSQL replication")
 Rel(medrecord_db, debezium, "CDC", "PostgreSQL replication")
 Rel(debezium, kafka, "События", "Kafka Producer")
-Rel(kafka, clickhouse, "Данные", "Kafka Consumer")
+Rel(kafka, airflow, "Триггер DAG", "Kafka Consumer")
+Rel(airflow, classification_engine, "Запуск классификации", "Python Operator")
+Rel(classification_engine, infowatch, "Проверка контента", "REST API")
+Rel(classification_engine, clickhouse, "Загрузка данных", "JDBC")
 Rel(openmetadata, clickhouse, "Метаданные", "JDBC")
 Rel(openmetadata, crm_db, "Метаданные", "JDBC")
 Rel(openmetadata, medrecord_db, "Метаданные", "JDBC")
+Rel(airflow, openmetadata, "Обновление тегов", "REST API")
 
 ' Аналитик
 Rel(analyst, clickhouse, "Запросы (dlp_approved)", "JDBC/HTTP")
@@ -130,6 +143,12 @@ Rel(c1_buh, kkm, "Платежи", "TCP/IP")
 ' Внешние системы
 Rel(medrecord_api, laboratory, "Заявки на анализы", "REST API")
 Rel(crm_api, insurance, "Согласование ДМС", "REST API")
+
+' SIEM и DLP
+Rel(elastic, maxpatrol, "События безопасности", "Syslog/API")
+Rel(auth_proxy, maxpatrol, "События аутентификации", "Syslog")
+Rel(minio, infowatch, "Сканирование файлов", "ICAP")
+Rel(clickhouse, infowatch, "Аудит выгрузок", "REST API")
 
 SHOW_LEGEND()
 @enduml

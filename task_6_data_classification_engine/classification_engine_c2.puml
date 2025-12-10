@@ -1,0 +1,96 @@
+@startuml classification_engine_c2
+!include https://raw.githubusercontent.com/plantuml-stdlib/C4-PlantUML/master/C4_Container.puml
+
+' Стили
+AddElementTag("engine", $bgColor="#438DD5", $borderColor="#3C7FC0", $fontColor="white", $legendText="Classification Engine (собственная разработка)")
+AddElementTag("third-party", $bgColor="#f5f5f5", $borderColor="DarkGray", $fontColor="Black", $legendText="Сторонние компоненты")
+AddElementTag("parent-company", $bgColor="#FFE4B5", $borderColor="#D2691E", $fontColor="Black", $legendText="Сервисы материнской компании")
+AddElementTag("storage", $bgColor="#CCE5FF", $borderColor="#3399FF", $fontColor="Black", $legendText="Хранилища данных")
+
+title C2 Container Diagram: Classification Engine (Движок классификации данных)
+
+' Внешние системы (источники данных)
+System_Boundary(sources, "Источники данных") {
+    ContainerDb(kafka, "Kafka", "Message Broker", "CDC-события из\nтранзакционных БД", $tags="third-party")
+    Container(openmetadata, "OpenMetadata", "Data Catalog", "Схема данных,\nтеги полей", $tags="third-party")
+}
+
+' Classification Engine
+System_Boundary(engine, "Classification Engine") {
+    
+    Container(schema_discovery, "Schema Discovery\nService", "Python", "Обнаружение новых полей,\nсравнение со схемой", $tags="engine")
+    
+    Container(ml_classifier, "ML Classifier\nService", "Python/Spark", "NER, Pattern Matching,\nклассификация ПДн", $tags="engine")
+    
+    Container(tokenizer, "Tokenization\nService", "Python", "SHA-256, FPE,\nобобщение, сдвиг дат", $tags="engine")
+    
+    Container(dlp_integration, "DLP Integration\nService", "Python", "Интеграция с InfoWatch,\nверификация токенизации", $tags="engine")
+    
+    Container(loader, "ClickHouse\nLoader", "Python/JDBC", "Загрузка в слои:\nraw, tokenized, dlp_approved", $tags="engine")
+    
+    Container(metadata_updater, "Metadata\nUpdater", "Python", "Обновление тегов\nв OpenMetadata", $tags="engine")
+}
+
+' Оркестрация
+Container(airflow, "Apache Airflow", "Workflow Orchestration", "Оркестрация DAG,\nрасписание, мониторинг", $tags="third-party")
+
+' Внешние системы (получатели)
+System_Boundary(targets, "Целевые системы") {
+    ContainerDb(clickhouse_raw, "ClickHouse\nraw_sources", "Analytics DB", "Полные данные с ПДн\n(доступ: admin)", $tags="storage")
+    ContainerDb(clickhouse_token, "ClickHouse\ntokenized_sources", "Analytics DB", "Токенизированные данные\n(доступ: analyst)", $tags="storage")
+    ContainerDb(clickhouse_dlp, "ClickHouse\ndlp_approved", "Analytics DB", "Проверенные DLP\n(доступ: external)", $tags="storage")
+}
+
+' DLP материнской компании
+Container(infowatch, "InfoWatch\nTraffic Monitor", "DLP System", "Проверка на наличие ПДн\nв токенизированных данных", $tags="parent-company")
+
+' Мониторинг
+ContainerDb(elastic, "ElasticSearch", "Log Storage", "Логи классификации,\nаудит операций", $tags="third-party")
+
+' Уведомления
+Container(alerting, "Alerting", "Email/Slack", "Уведомления о новых\nполях, ошибках DLP", $tags="third-party")
+
+' === СВЯЗИ ===
+
+' Airflow оркестрирует все компоненты
+Rel(airflow, schema_discovery, "Task 1", "Python Operator")
+Rel(airflow, ml_classifier, "Task 2", "Spark Operator")
+Rel(airflow, tokenizer, "Task 3", "Python Operator")
+Rel(airflow, dlp_integration, "Task 4", "Python Operator")
+Rel(airflow, loader, "Task 5", "Python Operator")
+Rel(airflow, metadata_updater, "Task 6", "Python Operator")
+
+' Получение данных
+Rel(kafka, schema_discovery, "CDC события", "Kafka Consumer")
+Rel(openmetadata, schema_discovery, "Схема, теги", "REST API")
+
+' Пайплайн обработки
+Rel(schema_discovery, ml_classifier, "Данные + схема", "Internal")
+Rel(ml_classifier, tokenizer, "Классифицированные\nданные", "Internal")
+Rel(tokenizer, dlp_integration, "Токенизированные\nданные", "Internal")
+Rel(dlp_integration, loader, "Проверенные\nданные", "Internal")
+Rel(loader, metadata_updater, "Статус загрузки", "Internal")
+
+' DLP проверка
+Rel(dlp_integration, infowatch, "Проверка контента", "REST API")
+Rel(infowatch, dlp_integration, "Результат проверки", "REST API")
+
+' Загрузка в ClickHouse
+Rel(loader, clickhouse_raw, "INSERT raw", "JDBC")
+Rel(loader, clickhouse_token, "INSERT tokenized", "JDBC")
+Rel(loader, clickhouse_dlp, "INSERT approved", "JDBC")
+
+' Обновление метаданных
+Rel(metadata_updater, openmetadata, "Обновление тегов", "REST API")
+
+' Логирование
+Rel(schema_discovery, elastic, "Логи", "HTTP")
+Rel(ml_classifier, elastic, "Логи + метрики", "HTTP")
+Rel(dlp_integration, elastic, "Результаты DLP", "HTTP")
+
+' Алертинг
+Rel(schema_discovery, alerting, "Новые поля", "Webhook")
+Rel(dlp_integration, alerting, "Ошибки DLP", "Webhook")
+
+SHOW_LEGEND()
+@enduml

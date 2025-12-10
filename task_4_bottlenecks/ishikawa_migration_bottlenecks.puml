@@ -1,0 +1,76 @@
+@startuml
+' Диаграмма Исикавы: Узкие места при миграции
+title Диаграмма Исикавы: Узкие места при миграции системы «Медикаменте»
+
+skinparam backgroundColor #FFFFFF
+skinparam defaultFontSize 11
+
+' Основная проблема (голова рыбы)
+rectangle "**УЗКИЕ МЕСТА\nПРИ МИГРАЦИИ**" as problem #FF6B6B
+
+' Категории (кости)
+rectangle "**ДАННЫЕ**" as data #FFE066
+rectangle "**ИНФРАСТРУКТУРА**" as infra #66D9EF
+rectangle "**ИНТЕГРАЦИЯ**" as integration #A6E22E
+rectangle "**ПЕРСОНАЛ**" as people #FD971F
+rectangle "**ПРОЦЕССЫ**" as process #AE81FF
+rectangle "**БЕЗОПАСНОСТЬ**" as security #F92672
+
+' Проблемы по категориям
+note right of data
+  • Качество данных в Excel
+  • Дубликаты и опечатки
+  • Отсутствие связей (FK)
+  • Разные кодировки
+  • Целостность МК
+end note
+
+note right of infra
+  • Сетевая связность
+  • Пропускная способность
+  • Отказоустойчивость K8s
+  • Резервное копирование
+  • Мониторинг
+end note
+
+note right of integration
+  • 1С → клиент-сервер
+  • API лаборатории
+  • API страховой
+  • ККМ интеграция
+  • AD Federation
+end note
+
+note left of people
+  • Обучение сотрудников
+  • Сопротивление изменениям
+  • Нехватка DevOps
+  • Врачи и медсёстры
+  • Бизнес-аналитик
+end note
+
+note left of process
+  • Параллельная работа
+  • Простой при миграции
+  • Валидация данных
+  • План отката
+  • Документирование
+end note
+
+note left of security
+  • Доступ при миграции
+  • Шифрование переноса
+  • Аудит миграции
+  • Удаление старых данных
+  • Временные копии
+end note
+
+' Связи (хребет)
+data --> problem
+infra --> problem
+integration --> problem
+people --> problem
+process --> problem
+security --> problem
+
+@enduml
