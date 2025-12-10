@@ -1,0 +1,72 @@
+@startuml
+' Диаграмма потока данных: Внутренняя аналитическая работа
+left to right direction
+title DFD: Внутренняя аналитическая работа
+
+' Определяем process как прямоугольник
+!define process rectangle
+
+' -----------------------------------------------------------
+' НАСТРОЙКИ СТИЛЕЙ
+' -----------------------------------------------------------
+
+' 1. Стиль ПО УМОЛЧАНИЮ для всех rectangle (наши Процессы)
+skinparam rectangle {
+    RoundCorner 20
+    BackgroundColor #FFCCCC
+    BorderColor Black
+}
+
+' 2. Стиль для Внешних процессов
+skinparam rectangle<<external_process>> {
+    RoundCorner 20
+    BackgroundColor #E0E0E0
+    BorderColor Black
+}
+
+' Настройки баз данных
+skinparam database {
+    BackgroundColor #CCE5FF
+}
+skinparam database<<external>> {
+    BackgroundColor #E0E0E0
+}
+
+' -----------------------------------------------------------
+' УЧАСТНИКИ И ДАННЫЕ
+' -----------------------------------------------------------
+actor "Главврач" as chief_doctor
+actor "Бизнес-\nаналитик" as analyst
+
+database "Журналы\nзаписей\n(xlsx)" as journals_db
+database "Папки\nмедкарт\nпациентов" as med_cards
+database "1С\nБухгалтерия" as c1_buh
+database "Excel-отчёты\n(локально)" as excel_reports
+
+' -----------------------------------------------------------
+' ПРОЦЕССЫ
+' -----------------------------------------------------------
+process "Запрос\nна отчёт" as request_report
+process "Сбор данных\nиз журналов" as collect_journals
+process "Сбор данных\nиз МК" as collect_med_cards
+process "Выгрузка\nиз 1С" as export_1c
+process "Ручная\nсводка в Excel" as manual_consolidation
+process "Принятие\nрешений" as decision_making
+
+' -----------------------------------------------------------
+' ПОТОКИ ДАННЫХ
+' -----------------------------------------------------------
+chief_doctor --> request_report : Устный запрос /\nemail
+request_report --> analyst : Задание на\nформирование отчёта
+analyst --> collect_journals : Открытие журналов
+collect_journals <-- journals_db : ФИО пациентов,\nдаты приёмов,\nспециалисты
+analyst --> collect_med_cards : Открытие МК
+collect_med_cards <-- med_cards : Диагнозы, назначения,\nрезультаты анализов
+analyst --> export_1c : Запрос выгрузки
+export_1c <-- c1_buh : Данные о платежах,\nвыручка по услугам
+analyst --> manual_consolidation : Все собранные данные
+manual_consolidation --> excel_reports : Сводный отчёт\nс ПДн
+analyst --> chief_doctor : Готовый отчёт\n(email / флешка)
+chief_doctor --> decision_making : Анализ данных
+
+@enduml

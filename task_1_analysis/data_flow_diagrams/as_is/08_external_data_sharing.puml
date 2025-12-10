@@ -1,0 +1,79 @@
+@startuml
+' Диаграмма потока данных: Передача аналитических данных вовне
+left to right direction
+title DFD: Передача аналитических данных вовне
+
+' Определяем process как прямоугольник
+!define process rectangle
+
+' -----------------------------------------------------------
+' НАСТРОЙКИ СТИЛЕЙ
+' -----------------------------------------------------------
+
+' 1. Стиль ПО УМОЛЧАНИЮ для всех rectangle (наши Процессы)
+skinparam rectangle {
+    RoundCorner 20
+    BackgroundColor #FFCCCC
+    BorderColor Black
+}
+
+' 2. Стиль для Внешних процессов
+skinparam rectangle<<external_process>> {
+    RoundCorner 20
+    BackgroundColor #E0E0E0
+    BorderColor Black
+}
+
+' Настройки баз данных
+skinparam database {
+    BackgroundColor #CCE5FF
+}
+skinparam database<<external>> {
+    BackgroundColor #E0E0E0
+}
+
+' -----------------------------------------------------------
+' УЧАСТНИКИ И ДАННЫЕ
+' -----------------------------------------------------------
+actor "Бизнес-\nаналитик\nклиники" as analyst
+actor "Внешний\nаналитик" as external_analyst
+
+database "Папки\nмедкарт\nпациентов" as med_cards
+database "Журналы\nзаписей\n(xlsx)" as journals_db
+database "1С\nБухгалтерия" as c1_buh
+database "Excel-отчёты\n(локально)" as excel_reports
+database "Корпоративная\nпочта"  as email_server
+database "Облачный\nдиск" <<external>> as cloud_storage
+
+' -----------------------------------------------------------
+' ПРОЦЕССЫ
+' -----------------------------------------------------------
+process "Запрос\nданных" as request_data
+process "Сбор данных\nиз МК и журналов" as collect_data
+process "Выгрузка\nиз 1С" as export_1c
+process "Формирование\nвыгрузки в Excel" as create_export
+process "Отправка\nпо email" as send_email
+process "Загрузка\nв облако" as upload_cloud
+process "Получение\nданных" <<external_process>> as receive_data
+
+' -----------------------------------------------------------
+' ПОТОКИ ДАННЫХ
+' -----------------------------------------------------------
+external_analyst --> request_data : Запрос данных\n(email / звонок)
+request_data --> analyst : Требования\nк выгрузке
+analyst --> collect_data : Сбор данных
+collect_data <-- med_cards : Диагнозы, назначения,\nПДн пациентов
+collect_data <-- journals_db : ФИО, даты приёмов
+analyst --> export_1c : Запрос выгрузки
+export_1c <-- c1_buh : Данные о платежах
+analyst --> create_export : Собранные данные
+create_export --> excel_reports : Файл выгрузки\nс полными ПДн
+analyst --> send_email : Отправка вовне
+send_email --> email_server : Файл с ПДн\n(без шифрования)
+analyst --> upload_cloud : Загрузка в облако
+upload_cloud --> cloud_storage : Файл с ПДн\n(публичная ссылка)
+email_server --> receive_data : Письмо с вложением
+cloud_storage --> receive_data : Скачивание файла
+receive_data --> external_analyst : Данные получены
+
+@enduml
