@@ -1,0 +1,135 @@
+@startuml c4_container_to_be
+!include https://raw.githubusercontent.com/plantuml-stdlib/C4-PlantUML/master/C4_Container.puml
+
+' Стили для разделения собственной разработки и third-party
+AddElementTag("third-party", $bgColor="#f5f5f5", $borderColor="DarkGray", $fontColor="Black", $legendText="Компоненты сторонних производителей")
+AddElementTag("custom", $bgColor="#438DD5", $borderColor="#3C7FC0", $fontColor="white", $legendText="Собственная разработка")
+
+title C4 Container Diagram: МЕДИКАМЕНТЕ (TO-BE)
+
+' Акторы
+Person(patient, "Пациент", "Клиент клиники, использует ЛК")
+Person(admin, "Администратор", "Сотрудник ресепшена")
+Person(doctor, "Врач", "Специалист-медик")
+Person(nurse, "Медсестра", "Направления на анализы")
+Person(analyst, "Аналитик", "Бизнес-аналитика")
+Person(bookkeeper, "Бухгалтер", "Финансовый учёт")
+
+' Kubernetes кластер
+System_Boundary(k8s, "Kubernetes Cluster (Selectel)") {
+    
+    ' Gateway layer
+    Container(webapp, "Web/Mobile App", "React, React Native", "ЛК пациента, интерфейсы сотрудников", $tags="custom")
+    Container(auth_proxy, "Auth Proxy", "Java/Go", "Управление сессиями, проверка JWT и ИС, RBAC+ABAC", $tags="custom")
+    
+    ' Core API services
+    Container(crm_api, "CRM API", "Java/Spring Boot", "Пациенты, записи, расписание", $tags="custom")
+    Container(medrecord_api, "Med Record API", "Java/Spring Boot", "Медкарты, диагнозы, назначения", $tags="custom")
+    Container(consent_api, "Consent Manager API", "Java/Spring Boot", "Информированное согласие", $tags="custom")
+    
+    ' Identity & Security (third-party)
+    Container(keycloak, "Keycloak", "Identity Provider", "Аутентификация, User Federation по AD", $tags="third-party")
+    Container(vault, "HashiCorp Vault", "Secrets Management", "Ключи шифрования, пароли", $tags="third-party")
+    
+    ' Databases - отдельная БД для каждого сервиса
+    ContainerDb(crm_db, "crm_db", "PostgreSQL", "БД CRM API: patients, appointments, staff", $tags="third-party")
+    ContainerDb(medrecord_db, "medrecord_db", "PostgreSQL", "БД Med Record API: medical_records, diagnoses, prescriptions", $tags="third-party")
+    ContainerDb(consent_db, "consent_db", "PostgreSQL", "БД Consent Manager: consents, audit_log", $tags="third-party")
+    ContainerDb(keycloak_db, "keycloak_db", "PostgreSQL", "БД Keycloak", $tags="third-party")
+    
+    ' Cache
+    ContainerDb(redis, "Redis", "Cache", "Кэш сессий и ИС, FERNET-шифрование", $tags="third-party")
+    
+    ' Object storage
+    Container(minio, "MinIO", "S3 Storage", "Документы МК по папкам /patient_uuid/", $tags="third-party")
+    
+    ' Observability
+    ContainerDb(elastic, "ElasticSearch", "Log Storage", "Логи всех подов", $tags="third-party")
+    
+    ' Analytics layer (third-party)
+    Container(kafka, "Kafka", "Message Broker", "Топики CDC-событий", $tags="third-party")
+    Container(debezium, "Debezium", "CDC Connector", "Захват изменений из PostgreSQL", $tags="third-party")
+    ContainerDb(clickhouse, "ClickHouse", "Analytics DB", "Слои: raw_sources, tokenized, dlp_approved", $tags="third-party")
+    Container(openmetadata, "OpenMetadata", "Data Catalog", "Теги: pii, extra_protected, med_record, dlp_needed", $tags="third-party")
+}
+
+' Сервисы вне Kubernetes
+System_Boundary(external_dc, "Дата-центр (VPS)") {
+    Container(ad, "Active Directory", "Windows VPS", "Учётные записи сотрудников", $tags="third-party")
+    Container(c1_buh, "1С Бухгалтерия", "Linux VPS, клиент-сервер", "Учёт платежей, зарплата, налоги", $tags="third-party")
+    ContainerDb(c1_buh_db, "1С БД", "PostgreSQL", "БД 1С Бухгалтерия", $tags="third-party")
+    Container(c1_sklad, "1С Торговля и склад", "Linux VPS, клиент-сервер", "Учёт ТМЦ", $tags="third-party")
+    ContainerDb(c1_sklad_db, "1С БД", "PostgreSQL", "БД 1С Склад", $tags="third-party")
+}
+
+' Локальное оборудование
+Container(kkm, "ККМ", "Hardware", "Контрольно-кассовые машины в филиалах", $tags="third-party")
+
+' Внешние системы
+System_Ext(laboratory, "Laboratory", "Лаборатория-партнёр")
+System_Ext(insurance, "Insurance Portal", "Страховая компания (ДМС)")
+
+' === СВЯЗИ ===
+
+' Пользователи -> Web App
+Rel(patient, webapp, "Запись, просмотр МК", "HTTPS")
+Rel(admin, webapp, "Регистрация, записи", "HTTPS")
+Rel(doctor, webapp, "Ведение МК", "HTTPS")
+Rel(nurse, webapp, "Направления", "HTTPS")
+
+' Web App -> Auth Proxy
+Rel(webapp, auth_proxy, "Все API-запросы", "HTTPS")
+
+' Auth Proxy -> сервисы
+Rel(auth_proxy, keycloak, "Аутентификация", "OIDC")
+Rel(auth_proxy, consent_api, "Проверка ИС", "gRPC/REST")
+Rel(auth_proxy, crm_api, "Проксирование", "REST")
+Rel(auth_proxy, medrecord_api, "Проксирование (с проверкой ИС)", "REST")
+Rel(auth_proxy, minio, "Проксирование (с проверкой ИС)", "S3 API")
+Rel(auth_proxy, redis, "Сессии", "Redis Protocol")
+
+' Core API -> Storage (каждый сервис со своей БД)
+Rel(crm_api, crm_db, "CRUD", "JDBC")
+Rel(medrecord_api, medrecord_db, "CRUD", "JDBC")
+Rel(medrecord_api, minio, "Документы", "S3 API")
+Rel(consent_api, consent_db, "CRUD", "JDBC")
+Rel(consent_api, redis, "Кэш ИС", "Redis Protocol")
+Rel(keycloak, keycloak_db, "CRUD", "JDBC")
+
+' Security
+Rel(keycloak, ad, "User Federation", "LDAPS")
+Rel(vault, auth_proxy, "Секреты", "Vault API")
+Rel(vault, crm_api, "Ключи pgcrypto", "Vault API")
+Rel(vault, medrecord_api, "Ключи pgcrypto", "Vault API")
+Rel(vault, consent_api, "Ключи FERNET", "Vault API")
+
+' Логирование
+Rel(crm_api, elastic, "Логи", "HTTP")
+Rel(medrecord_api, elastic, "Логи", "HTTP")
+Rel(auth_proxy, elastic, "Логи запросов", "HTTP")
+
+' Analytics pipeline (CDC из всех БД)
+Rel(crm_db, debezium, "CDC", "PostgreSQL replication")
+Rel(medrecord_db, debezium, "CDC", "PostgreSQL replication")
+Rel(debezium, kafka, "События", "Kafka Producer")
+Rel(kafka, clickhouse, "Данные", "Kafka Consumer")
+Rel(openmetadata, clickhouse, "Метаданные", "JDBC")
+Rel(openmetadata, crm_db, "Метаданные", "JDBC")
+Rel(openmetadata, medrecord_db, "Метаданные", "JDBC")
+
+' Аналитик
+Rel(analyst, clickhouse, "Запросы (dlp_approved)", "JDBC/HTTP")
+
+' Бухгалтерия
+Rel(bookkeeper, c1_buh, "Учёт", "1С клиент")
+Rel(c1_buh, c1_buh_db, "CRUD", "JDBC")
+Rel(c1_sklad, c1_sklad_db, "CRUD", "JDBC")
+Rel(c1_buh, c1_sklad, "Обмен", "COM/OLE")
+Rel(c1_buh, kkm, "Платежи", "TCP/IP")
+
+' Внешние системы
+Rel(medrecord_api, laboratory, "Заявки на анализы", "REST API")
+Rel(crm_api, insurance, "Согласование ДМС", "REST API")
+
+SHOW_LEGEND()
+@enduml
