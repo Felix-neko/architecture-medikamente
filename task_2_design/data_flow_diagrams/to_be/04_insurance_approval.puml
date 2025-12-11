@@ -1,0 +1,75 @@
+@startuml
+' Диаграмма потока данных: Согласование ДМС (TO-BE)
+left to right direction
+title DFD: Согласование процедуры по ДМС (TO-BE)
+
+!define process rectangle
+
+skinparam rectangle {
+    RoundCorner 20
+    BackgroundColor #CCFFCC
+    BorderColor Black
+}
+
+skinparam rectangle<<external_process>> {
+    RoundCorner 20
+    BackgroundColor #E0E0E0
+    BorderColor Black
+}
+
+skinparam database {
+    BackgroundColor #CCE5FF
+}
+skinparam database<<external>> {
+    BackgroundColor #E0E0E0
+}
+
+' -----------------------------------------------------------
+' УЧАСТНИКИ И ДАННЫЕ
+' -----------------------------------------------------------
+actor "Администратор\n(insurance_coordinator)" as admin
+
+database "CRM DB\n(PostgreSQL)" as crm_db
+database "Med Record DB\n(PostgreSQL)" as medrecord_db
+database "Consent DB\n(PostgreSQL)" as consent_db
+database "ElasticSearch\n(логи)" as elastic
+database "Портал\nстраховой" <<external>> as insurance_portal
+
+' -----------------------------------------------------------
+' ПРОЦЕССЫ
+' -----------------------------------------------------------
+process "Web App\n(поиск записи)" as webapp_search
+process "Auth Proxy" as auth_proxy
+process "Consent Manager API\n(проверка ИС)" as consent_check
+process "CRM API\n(данные для заявки)" as crm_get
+process "Med Record API\n(клин. данные)" as medrecord_get
+process "Web App\n(отображение данных)" as webapp_show
+process "Портал страховой\n(браузер)" <<external_process>> as insurance_browser
+process "Web App\n(обновление статуса)" as webapp_update
+process "CRM API\n(UPDATE)" as crm_update
+
+' -----------------------------------------------------------
+' ПОТОКИ ДАННЫХ
+' -----------------------------------------------------------
+admin --> webapp_search : Поиск записи\n"требует согласования"
+webapp_search --> auth_proxy : Запрос
+auth_proxy --> consent_check : Проверка ИС\n(право на страховую)
+consent_check <-- consent_db : Действующее ИС?
+consent_check --> auth_proxy : ИС OK
+auth_proxy --> crm_get : Запрос данных
+crm_get <-- crm_db : № договора ДМС
+auth_proxy --> medrecord_get : Запрос клин. данных
+medrecord_get <-- medrecord_db : Часть клин. данных\n(для заявки)
+crm_get --> webapp_show : Данные для заявки
+medrecord_get --> webapp_show : Клин. данные
+webapp_show --> admin : Отображение
+admin --> insurance_browser : Копипаст\nданных в форму
+insurance_browser --> insurance_portal : Заявка
+insurance_portal --> admin : Одобрено/отказ
+admin --> webapp_update : Отметка\n"согласована"
+webapp_update --> auth_proxy : UPDATE
+auth_proxy --> crm_update : UPDATE
+crm_update --> crm_db : insurance_status
+crm_update --> elastic : Лог операции
+
+@enduml

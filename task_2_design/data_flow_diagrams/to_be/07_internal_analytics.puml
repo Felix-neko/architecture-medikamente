@@ -1,0 +1,69 @@
+@startuml
+' Диаграмма потока данных: Внутренняя аналитическая работа (TO-BE)
+left to right direction
+title DFD: Внутренняя аналитическая работа (TO-BE)
+
+!define process rectangle
+
+skinparam rectangle {
+    RoundCorner 20
+    BackgroundColor #CCFFCC
+    BorderColor Black
+}
+
+skinparam rectangle<<external_process>> {
+    RoundCorner 20
+    BackgroundColor #E0E0E0
+    BorderColor Black
+}
+
+skinparam database {
+    BackgroundColor #CCE5FF
+}
+skinparam database<<external>> {
+    BackgroundColor #E0E0E0
+}
+
+' -----------------------------------------------------------
+' УЧАСТНИКИ И ДАННЫЕ
+' -----------------------------------------------------------
+actor "Главврач" as chief_doctor
+actor "Бизнес-\nаналитик" as analyst
+
+database "PostgreSQL\n(транзакц. БД)" as postgres_db
+database "ClickHouse\nraw_data" as clickhouse_raw
+database "ClickHouse\nanonymized" as clickhouse_anon
+database "ClickHouse\ndlp_approved" as clickhouse_approved
+database "ElasticSearch\n(логи)" as elastic
+
+' -----------------------------------------------------------
+' ПРОЦЕССЫ
+' -----------------------------------------------------------
+process "Запрос\nна отчёт" as request_report
+process "Airflow DAG\n(еженощный ETL)" as airflow_etl
+process "Classification Engine\n(обезличивание)" as anon_engine
+process "InfoWatch DLP\n(проверка)" as dlp_check
+process "Airflow DAG\n(копирование в dlp_approved)" as airflow_copy
+process "Формирование\nотчёта" as create_report
+
+' -----------------------------------------------------------
+' ПОТОКИ ДАННЫХ
+' -----------------------------------------------------------
+chief_doctor --> request_report : Запрос отчёта
+request_report --> analyst : Требования
+airflow_etl --> postgres_db : SELECT инкремент\n(еженощно)
+airflow_etl --> clickhouse_raw : INSERT raw_data
+airflow_etl --> anon_engine : Запуск обезличивания
+anon_engine <-- clickhouse_raw : Сырые данные
+anon_engine --> clickhouse_anon : Обезличенные\nданные
+anon_engine --> dlp_check : Проверка DLP
+dlp_check --> clickhouse_anon : UPDATE dlp_approved,\ndlp_comment, dlp_error
+airflow_copy <-- clickhouse_anon : WHERE dlp_approved=true
+airflow_copy --> clickhouse_approved : INSERT
+analyst --> create_report : SQL-запросы
+create_report <-- clickhouse_approved : Данные без ПДн
+create_report --> analyst : Отчёт
+analyst --> chief_doctor : Готовый отчёт
+create_report --> elastic : Лог запросов
+
+@enduml

@@ -1,0 +1,61 @@
+@startuml
+' Диаграмма потока данных: Передача аналитических данных вовне (TO-BE)
+left to right direction
+title DFD: Передача аналитических данных вовне (TO-BE)
+
+!define process rectangle
+
+skinparam rectangle {
+    RoundCorner 20
+    BackgroundColor #CCFFCC
+    BorderColor Black
+}
+
+skinparam rectangle<<external_process>> {
+    RoundCorner 20
+    BackgroundColor #E0E0E0
+    BorderColor Black
+}
+
+skinparam database {
+    BackgroundColor #CCE5FF
+}
+skinparam database<<external>> {
+    BackgroundColor #E0E0E0
+}
+
+' -----------------------------------------------------------
+' УЧАСТНИКИ И ДАННЫЕ
+' -----------------------------------------------------------
+actor "Бизнес-\nаналитик" as analyst
+actor "Внешний\nаналитик" as external_analyst
+
+database "ClickHouse\ndlp_approved" as clickhouse
+database "ElasticSearch\n(логи)" as elastic
+database "SFTP/API\n(mTLS)" <<external>> as secure_channel
+
+' -----------------------------------------------------------
+' ПРОЦЕССЫ
+' -----------------------------------------------------------
+process "Запрос\nданных" as request_data
+process "Формирование\nвыгрузки" as create_export
+process "InfoWatch DLP\n(финальная проверка)" as dlp_final
+process "Передача\nданных" as transfer_data
+process "Получение\nданных" <<external_process>> as receive_data
+
+' -----------------------------------------------------------
+' ПОТОКИ ДАННЫХ
+' -----------------------------------------------------------
+external_analyst --> request_data : Запрос данных\n(email/заявка)
+request_data --> analyst : Требования\nк выгрузке
+analyst --> create_export : SQL-запрос
+create_export <-- clickhouse : Данные из\ndlp_approved
+create_export --> dlp_final : Файл выгрузки
+dlp_final --> dlp_final : Проверка\nотсутствия ПДн
+dlp_final --> transfer_data : Выгрузка\nодобрена
+transfer_data --> secure_channel : Данные\n(SFTP/mTLS)
+secure_channel --> receive_data : Скачивание
+receive_data --> external_analyst : Обезличенные\nданные
+transfer_data --> elastic : Лог: что,\nкому, когда
+
+@enduml
