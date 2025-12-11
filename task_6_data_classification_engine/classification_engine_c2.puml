@@ -2,109 +2,94 @@
 !include https://raw.githubusercontent.com/plantuml-stdlib/C4-PlantUML/master/C4_Container.puml
 
 ' Стили
-AddElementTag("engine", $bgColor="#438DD5", $borderColor="#3C7FC0", $fontColor="white", $legendText="Classification Engine (собственная разработка)")
-AddElementTag("third-party", $bgColor="#f5f5f5", $borderColor="DarkGray", $fontColor="Black", $legendText="Сторонние компоненты")
-AddElementTag("parent-company", $bgColor="#FFE4B5", $borderColor="#D2691E", $fontColor="Black", $legendText="Сервисы материнской компании")
-AddElementTag("storage", $bgColor="#CCE5FF", $borderColor="#3399FF", $fontColor="Black", $legendText="Хранилища данных")
+AddElementTag("engine", $bgColor="#438DD5", $borderColor="#3C7FC0", $fontColor="white")
+AddElementTag("third-party", $bgColor="#f5f5f5", $borderColor="DarkGray", $fontColor="Black")
+AddElementTag("parent-company", $bgColor="#FFE4B5", $borderColor="#D2691E", $fontColor="Black")
+AddElementTag("storage", $bgColor="#CCE5FF", $borderColor="#3399FF", $fontColor="Black")
 
-title C2 Container Diagram: Classification Engine (Движок классификации данных)
+title Classification Engine — C2 Container Diagram
 
-' Источники данных
-System_Boundary(sources, "Источники данных") {
-    ContainerDb(postgres_crm, "CRM DB", "PostgreSQL", "Пациенты, записи,\nнаправления", $tags="storage")
-    ContainerDb(postgres_med, "Med Record DB", "PostgreSQL", "Медкарты, диагнозы,\nназначения", $tags="storage")
-    ContainerDb(minio_src, "MinIO\nmedrecords", "S3 Storage", "Файлы МК:\nснимки, протоколы", $tags="storage")
-    Container(openmetadata, "OpenMetadata", "Data Catalog", "Схема данных,\nтеги полей", $tags="third-party")
+' ============ ВЕРХ: Источники данных (горизонтально) ============
+together {
+    ContainerDb(postgres_crm, "CRM DB", "PostgreSQL", "Пациенты, записи", $tags="storage")
+    ContainerDb(postgres_med, "Med Record DB", "PostgreSQL", "Медкарты, диагнозы", $tags="storage")
+    ContainerDb(minio_src, "MinIO medrecords", "S3", "Файлы МК", $tags="storage")
+    Container(openmetadata, "OpenMetadata", "Data Catalog", "Схема, теги", $tags="third-party")
 }
 
-' Classification Engine — сервисы для структурированных данных
-System_Boundary(engine_db, "Classification Engine: структурированные данные") {
-    Container(schema_discovery, "Schema Discovery\nService", "Python", "Проверка схемы,\nобнаружение новых полей", $tags="engine")
-    Container(data_anonymizer, "Data Anonymizer\nService", "Python", "SHA-256, FPE,\nобобщение адресов", $tags="engine")
-    Container(extra_filter, "Extra Protected\nFilter", "Python", "Фильтрация записей\nс ВИЧ, психиатрией", $tags="engine")
-    Container(dlp_db, "DLP Integration\n(данные)", "Python", "Проверка полей\nс тегом dlp_needed", $tags="engine")
-    Container(ch_loader, "ClickHouse\nLoader", "Python/JDBC", "Загрузка в слои:\nraw → anon → approved", $tags="engine")
+' Скрытые связи для горизонтального расположения источников
+postgres_crm -[hidden]r-> postgres_med
+postgres_med -[hidden]r-> minio_src
+minio_src -[hidden]r-> openmetadata
+
+' ============ ЦЕНТР: Apache Airflow (рамка) ============
+System_Boundary(airflow_system, "Apache Airflow") {
+    
+    ' DAG 1: ETL для ClickHouse (горизонтально)
+    together {
+        Container(schema_discovery, "1. Schema\nDiscovery", "Python", "Проверка схемы", $tags="engine")
+        Container(ch_loader_raw, "2. Load\nraw_data", "Python", "INSERT в raw", $tags="engine")
+        Container(extra_filter, "3. Extra\nFilter", "Python", "ВИЧ/психиатрия", $tags="engine")
+        Container(data_anonymizer, "4. Anonymizer", "Python", "SHA-256, FPE", $tags="engine")
+        Container(dlp_db, "5. DLP\nCheck", "Python", "Проверка ПДн", $tags="engine")
+        Container(ch_loader_approved, "6. Load\napproved", "Python", "INSERT в слои", $tags="engine")
+    }
+    
+    ' DAG 2: ETL для файлов (горизонтально)
+    together {
+        Container(file_scanner, "1. File\nScanner", "Python", "Список файлов", $tags="engine")
+        Container(file_anonymizer, "2. File\nAnonymizer", "Python", "Blur, редакция", $tags="engine")
+        Container(dlp_files, "3. DLP Check\nFiles", "Python", "Проверка файлов", $tags="engine")
+        Container(file_copier, "4. File\nCopier", "Python", "COPY approved", $tags="engine")
+    }
 }
 
-' Classification Engine — сервисы для файлов
-System_Boundary(engine_files, "Classification Engine: файлы") {
-    Container(file_scanner, "File Scanner\nService", "Python", "Список новых файлов,\nклассификация типа", $tags="engine")
-    Container(file_anonymizer, "File Anonymizer\nService", "Python", "Office, PDF, Images:\nзамена ПДн, blur лиц", $tags="engine")
-    Container(dlp_files, "DLP Integration\n(файлы)", "Python", "Проверка файлов\nчерез InfoWatch", $tags="engine")
-    Container(file_copier, "File Copier\nService", "Python", "Копирование в\ndlp_approved_files", $tags="engine")
+' ============ СПРАВА: InfoWatch (вне Airflow) ============
+Container(infowatch, "InfoWatch\nTraffic Monitor", "DLP System", "Проверка на ПДн", $tags="parent-company")
+
+' ============ НИЗ: Целевые хранилища (горизонтально) ============
+together {
+    ContainerDb(ch_raw, "raw_data", "ClickHouse", "С ПДн (admin)", $tags="storage")
+    ContainerDb(ch_anon, "anonymized", "ClickHouse", "Обезличенные", $tags="storage")
+    ContainerDb(ch_approved, "dlp_approved", "ClickHouse", "Без ПДн", $tags="storage")
+    ContainerDb(minio_approved, "dlp_approved\n_files", "MinIO", "Файлы без ПДн", $tags="storage")
 }
 
-' Оркестрация
-Container(airflow, "Apache Airflow", "Workflow Orchestration", "2 DAG: etl_clickhouse,\netl_minio_files", $tags="third-party")
+' Скрытые связи для горизонтального расположения целевых
+ch_raw -[hidden]r-> ch_anon
+ch_anon -[hidden]r-> ch_approved
+ch_approved -[hidden]r-> minio_approved
 
-' Целевые системы — ClickHouse
-System_Boundary(targets_ch, "ClickHouse (слои данных)") {
-    ContainerDb(ch_raw, "raw_data", "ClickHouse", "Копия данных с ПДн\n(admin, pii_read)", $tags="storage")
-    ContainerDb(ch_anon, "anonymized", "ClickHouse", "Обезличенные +\ndlp_approved/comment/error", $tags="storage")
-    ContainerDb(ch_approved, "dlp_approved", "ClickHouse", "Гарантированно без ПДн\n(analyst, external)", $tags="storage")
-}
+' ============ СВЯЗИ DAG 1 (горизонтально) ============
+schema_discovery -r-> ch_loader_raw : ""
+ch_loader_raw -r-> extra_filter : ""
+extra_filter -r-> data_anonymizer : ""
+data_anonymizer -r-> dlp_db : ""
+dlp_db -r-> ch_loader_approved : ""
 
-' Целевые системы — MinIO
-System_Boundary(targets_minio, "MinIO (бакеты)") {
-    ContainerDb(minio_approved, "dlp_approved_files", "S3 Storage", "Обезличенные файлы\n(analyst, external)", $tags="storage")
-}
+' ============ СВЯЗИ DAG 2 (горизонтально) ============
+file_scanner -r-> file_anonymizer : ""
+file_anonymizer -r-> dlp_files : ""
+dlp_files -r-> file_copier : ""
 
-' DLP материнской компании
-Container(infowatch, "InfoWatch\nTraffic Monitor", "DLP System", "Проверка данных и файлов\nна наличие ПДн", $tags="parent-company")
+' ============ Источники → DAG 1 ============
+Rel_D(postgres_crm, schema_discovery, "SELECT", "JDBC")
+Rel_D(postgres_med, schema_discovery, "SELECT", "JDBC")
+Rel_D(openmetadata, schema_discovery, "Теги", "REST")
 
-' Мониторинг и алертинг
-ContainerDb(elastic, "ElasticSearch", "Log Storage", "Логи, метрики,\nаудит операций", $tags="third-party")
-Container(alerting, "Alerting", "Email/Slack", "Уведомления:\nсхема, DLP, ошибки", $tags="third-party")
+' ============ Источники → DAG 2 ============
+Rel_D(minio_src, file_scanner, "LIST", "S3 API")
 
-' === СВЯЗИ: DAG для ClickHouse ===
-Rel(airflow, schema_discovery, "DAG: etl_clickhouse", "Task 1")
-Rel(airflow, extra_filter, "", "Task 3")
-Rel(airflow, data_anonymizer, "", "Task 4")
-Rel(airflow, dlp_db, "", "Task 5")
-Rel(airflow, ch_loader, "", "Task 2,6")
+' ============ DAG 1 → Целевые ============
+Rel_D(ch_loader_raw, ch_raw, "INSERT")
+Rel_D(ch_loader_approved, ch_anon, "INSERT")
+Rel_D(ch_loader_approved, ch_approved, "INSERT")
 
-' Источники → ETL
-Rel(postgres_crm, ch_loader, "SELECT инкремент", "JDBC")
-Rel(postgres_med, ch_loader, "SELECT инкремент", "JDBC")
-Rel(openmetadata, schema_discovery, "Схема, теги", "REST API")
+' ============ DAG 2 → Целевые ============
+Rel_D(file_copier, minio_approved, "COPY")
 
-' Пайплайн ClickHouse
-Rel(schema_discovery, extra_filter, "Проверено", "Internal")
-Rel(extra_filter, data_anonymizer, "Без extra_protected", "Internal")
-Rel(data_anonymizer, dlp_db, "Обезличенные", "Internal")
-Rel(dlp_db, ch_loader, "dlp_approved", "Internal")
+' ============ DLP-проверка (InfoWatch) ============
+Rel_R(dlp_db, infowatch, "REST API")
+Rel_R(dlp_files, infowatch, "REST API")
 
-' Загрузка в ClickHouse
-Rel(ch_loader, ch_raw, "INSERT", "JDBC")
-Rel(ch_loader, ch_anon, "INSERT", "JDBC")
-Rel(ch_loader, ch_approved, "INSERT WHERE approved", "JDBC")
-
-' === СВЯЗИ: DAG для MinIO ===
-Rel(airflow, file_scanner, "DAG: etl_minio_files", "Task 1-3")
-Rel(airflow, file_anonymizer, "", "Task 4")
-Rel(airflow, dlp_files, "", "Task 5")
-Rel(airflow, file_copier, "", "Task 6")
-
-' Источники → ETL файлов
-Rel(minio_src, file_scanner, "Список файлов", "S3 API")
-Rel(file_scanner, file_anonymizer, "Файлы по типу", "Internal")
-Rel(file_anonymizer, dlp_files, "Обезличенные", "Internal")
-Rel(dlp_files, file_copier, "dlp_approved", "Internal")
-Rel(file_copier, minio_approved, "COPY", "S3 API")
-
-' DLP проверка
-Rel(dlp_db, infowatch, "Проверка данных", "REST API")
-Rel(dlp_files, infowatch, "Проверка файлов", "REST API")
-
-' Логирование
-Rel(schema_discovery, elastic, "Логи", "HTTP")
-Rel(data_anonymizer, elastic, "Метрики", "HTTP")
-Rel(file_anonymizer, elastic, "Статус файлов", "HTTP")
-
-' Алертинг
-Rel(schema_discovery, alerting, "Schema drift", "Webhook")
-Rel(dlp_db, alerting, "DLP errors", "Webhook")
-Rel(dlp_files, alerting, "DLP errors", "Webhook")
-
-SHOW_LEGEND()
 @enduml
