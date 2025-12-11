@@ -1,0 +1,70 @@
+@startuml
+' Диаграмма потока данных: Запись на приём
+left to right direction
+title DFD: Запись на приём
+
+' Определяем process как прямоугольник
+!define process rectangle
+
+' -----------------------------------------------------------
+' НАСТРОЙКИ СТИЛЕЙ
+' -----------------------------------------------------------
+
+' 1. Стиль ПО УМОЛЧАНИЮ для всех rectangle (наши Процессы)
+' Мы делаем его красным и скругленным.
+skinparam rectangle {
+    RoundCorner 20
+    BackgroundColor #FFCCCC
+    BorderColor Black
+}
+
+' 2. Стиль для Внешних процессов
+skinparam rectangle<<external_process>> {
+    RoundCorner 20
+    BackgroundColor #E0E0E0
+    BorderColor Black
+}
+
+' Настройки баз данных
+skinparam database {
+    BackgroundColor #CCE5FF
+}
+skinparam database<<external>> {
+    BackgroundColor #E0E0E0
+}
+
+' Участники (человечки)
+actor "Пациент" as patient
+actor "Администратор\nрегистратуры" as admin
+actor "Врач" as doctor
+
+' Хранилища данных на сетевой файловой системе
+database "список пациентов" as patients_list
+database "журнал записей\nк врачам" as schedule_db
+database "Папка МК пациента" as med_card_folder
+
+' -----------------------------------------------------------
+' ПРОЦЕССЫ
+' -----------------------------------------------------------
+process "Проверка\nрегистрации\nпациента" as check_reg
+process "Поиск окна\nв расписании" as find_slot
+process "Создание\nзаписи" as create_booking
+process "Подписание\nинформ. согласия" as consent_process
+process "Сохранение информ.\nсогласия в МК" as add_to_med_card
+
+' Потоки данных
+patient --> admin : Запрос на запись\n(дата, специалист)
+doctor --> admin : Запрос на повторный приём\n(через мессенджер)
+admin --> check_reg : ФИО пациента
+patients_list --> check_reg : Скачиваем список пациентов
+admin --> find_slot : Дата, время, специалист
+find_slot -> admin: Свободные окна
+schedule_db --> find_slot : Файл с записями\nк врачу X на нужную дату
+admin --> create_booking : ФИО, время
+create_booking --> schedule_db : Файл с новой записью в журнале\n(добавлен номер и ФИО пациента,\nвремя записи)
+patient --> consent_process : Подпись
+consent_process <--> admin: Информированное согласие
+admin --> add_to_med_card: Информированное согласие\nс подписью пациента
+
+add_to_med_card --> med_card_folder: Сохраняем информ.\nсогласие в МК
+@enduml

@@ -1,0 +1,62 @@
+@startuml
+' Диаграмма потока данных: Регистрация пациента
+left to right direction
+title DFD: Регистрация пациента
+
+' Определяем process как прямоугольник
+!define process rectangle
+
+' -----------------------------------------------------------
+' НАСТРОЙКИ СТИЛЕЙ
+' -----------------------------------------------------------
+
+' 1. Стиль ПО УМОЛЧАНИЮ для всех rectangle (наши Процессы)
+' Мы делаем его красным и скругленным.
+skinparam rectangle {
+    RoundCorner 20
+    BackgroundColor #FFCCCC
+    BorderColor Black
+}
+
+' 2. Стиль для Внешних процессов
+skinparam rectangle<<external_process>> {
+    RoundCorner 20
+    BackgroundColor #E0E0E0
+    BorderColor Black
+}
+
+' Настройки баз данных
+skinparam database {
+    BackgroundColor #CCE5FF
+}
+skinparam database<<external>> {
+    BackgroundColor #E0E0E0
+}
+
+' Участники (человечки)
+actor "Пациент" as patient
+actor "Администратор\nрегистратуры" as admin
+
+' Хранилища данных (базы данных)
+database "список\nпациентов" as patients_db
+database "файл с общей\nинформацией\nо пациенте в его МК" as patient_folder
+
+' -----------------------------------------------------------
+' ПРОЦЕССЫ
+' -----------------------------------------------------------
+process "Поиск пациента\nв базе" as search_process
+process "Заполнение\nанкеты" as fill_form
+process "Создание\n МК пациента" as create_card
+process "Добавление в\nсписок пациентов" as add_new
+
+' Потоки данных
+patient --> admin : Паспорт, ФИО,\nконтактные данные
+admin --> search_process : Запрос на поиск
+search_process <-- patients_db : Скачивание списка перед открытием
+admin --> fill_form : Ввод данных пациента
+fill_form --> create_card : Данные анкеты
+create_card --> patient_folder : Сохранение\nанкеты пациента
+fill_form --> add_new : Данные нового пациента
+add_new --> patients_db : Добавление пациента в список
+
+@enduml

@@ -1,0 +1,80 @@
+@startuml
+' Диаграмма потока данных: Согласование процедуры со страховой компанией
+left to right direction
+title DFD: Согласование процедуры со страховой компанией
+
+' Определяем process как прямоугольник
+!define process rectangle
+
+' -----------------------------------------------------------
+' НАСТРОЙКИ СТИЛЕЙ
+' -----------------------------------------------------------
+
+' 1. Стиль ПО УМОЛЧАНИЮ для всех rectangle (наши Процессы)
+' Мы делаем его красным и скругленным.
+skinparam rectangle {
+    RoundCorner 20
+    BackgroundColor #FFCCCC
+    BorderColor Black
+}
+
+' 2. Стиль для Внешних процессов
+skinparam rectangle<<external_process>> {
+    RoundCorner 20
+    BackgroundColor #E0E0E0
+    BorderColor Black
+}
+
+' Настройки баз данных
+skinparam database {
+    BackgroundColor #CCE5FF
+}
+skinparam database<<external>> {
+    BackgroundColor #E0E0E0
+}
+
+' Участники (человечки)
+actor "Пациент" as patient
+actor "Администратор" as admin
+actor "Сотрудник\nстраховой" as insurer
+actor "Бухгалтер" as accountant
+
+' Хранилища данных (базы данных)
+database "Мед. карта пациента\n(сетевая папка)" as med_card
+process "ЛК партнёра\nна портале\nстраховой" <<external_process>> as insurance_portal
+database "журнал записей" as schedule_db
+
+' -----------------------------------------------------------
+' ПРОЦЕССЫ
+' -----------------------------------------------------------
+
+' Внутренние процессы
+process "Запрос на\nсогласование" as request
+process "Формирование\nзаявки" as create_claim
+process "Обработка\nрешения" as process_decision
+process "Сверка\nоплаты" as reconciliation
+
+' Внешние процессы
+process "Автоматическое\nсогласование" <<external_process>> as auto_approve
+process "Ручное\nсогласование" <<external_process>> as manual_approve
+
+' Потоки данных
+patient --> request : Запрос о\nпокрытии ДМС
+request --> admin: Запрос о\nпокрытии ДМС
+admin --> med_card : Запрос выписок
+med_card --> create_claim : История болезни,\nрезультаты анализов
+admin --> create_claim : Данные о процедуре
+create_claim --> insurance_portal : Заявка на\nсогласование
+insurance_portal --> auto_approve : Простые заявки
+insurance_portal --> insurer : Сложные заявки
+insurer --> manual_approve : Решение
+auto_approve --> insurance_portal : Решение\n(согласовано/отказ)
+manual_approve --> insurance_portal : Решение\n(согласовано/отказ)
+insurance_portal --> admin : Уведомление,\nгарант. письмо
+admin --> process_decision : Результат согласования
+process_decision --> schedule_db : Пометка об оплате\nпо ДМС
+accountant --> reconciliation : Проверка
+admin --> reconciliation : Данные ЛК
+reconciliation --> insurance_portal : Статус оплаты
+
+@enduml

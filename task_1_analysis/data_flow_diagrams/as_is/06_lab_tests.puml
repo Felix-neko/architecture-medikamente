@@ -1,0 +1,93 @@
+@startuml
+' Диаграмма потока данных: Сдача лабораторных анализов
+left to right direction
+title DFD: Сдача лабораторных анализов
+
+' Определяем process как прямоугольник
+!define process rectangle
+
+' -----------------------------------------------------------
+' НАСТРОЙКИ СТИЛЕЙ
+' -----------------------------------------------------------
+
+' 1. Стиль ПО УМОЛЧАНИЮ для всех rectangle (наши Процессы)
+' Мы делаем его красным и скругленным.
+' Так как это default, нам не нужно писать стереотип <<process>>, и текст не появится.
+skinparam rectangle {
+    RoundCorner 20
+    BackgroundColor #FFCCCC
+    BorderColor Black
+}
+
+' 2. Стиль для Внешних процессов
+' Указываем явно, чтобы поменять цвет на серый.
+skinparam rectangle<<external_process>> {
+    RoundCorner 20
+    BackgroundColor #E0E0E0
+    BorderColor Black
+}
+
+' 3. Стиль для "Простых прямоугольников" (Simple)
+' Если вам когда-то понадобится обычный квадратный прямоугольник,
+' используйте стереотип <<simple>>.
+skinparam rectangle<<simple>> {
+    RoundCorner 0
+    BackgroundColor White
+}
+
+' Настройки баз данных
+skinparam database {
+  BackgroundColor #CCE5FF
+}
+skinparam database<<external>> {
+  BackgroundColor #E0E0E0
+}
+
+' -----------------------------------------------------------
+' УЧАСТНИКИ И ДАННЫЕ
+' -----------------------------------------------------------
+actor "Пациент" as patient
+actor "Медсестра\nпроцедурной" as nurse
+actor "Сотрудники\nлаборатории-партнёра" as lab_staff
+
+database "Общая\nинформация\nо пациенте" as patient_info
+database "БД лаборатории-\nпартнёра" <<external>> as lab_db
+database "Медицинская\nкарта пациента" as med_card
+
+' -----------------------------------------------------------
+' ПРОЦЕССЫ
+' -----------------------------------------------------------
+
+' Внутренние процессы:
+' Мы НЕ пишем стереотип <<process>>, поэтому лишний текст не выводится.
+' Но так как мы поменяли дефолтный стиль rectangle, они будут красными и скругленными.
+process "Открыть и проверить\nнаправление" as open_and_check_referral
+process "Создание заказа\nв лабораторию\nчерез ЛК партнёра" as create_order
+
+' Внешний процесс:
+' Здесь мы ЯВНО пишем стереотип, чтобы применился серый цвет
+' и чтобы этот стереотип отобразился (как вы и просили для external).
+process "Обработка\nи результаты" <<external_process>> as process_results
+
+' Пример (если нужно будет добавить простой квадрат):
+' process "Какой-то квадрат" <<simple>> as simple_rect
+
+' -----------------------------------------------------------
+' ПОТОКИ ДАННЫХ
+' -----------------------------------------------------------
+patient --> nurse : Направление\nна анализы
+patient --> nurse: Биоматериал
+nurse --> open_and_check_referral: Направление пациента
+open_and_check_referral <-- patient_info : Данные пациента
+open_and_check_referral <-- med_card : Направление,\nсписок анализов\nпометка об оплате по ДМС
+nurse --> create_order: ФИО и данные пациента,\n виды анализов
+create_order --> lab_db : Заявка на анализы\nс данными пациента
+create_order --> nurse : Штрих-коды\nдля пробирок
+nurse --> med_card : Пометка: анализы взяты,\n№ заявки
+nurse --> lab_staff : Биоматериалы\nсо штрих-кодом
+lab_staff --> process_results : Анализ образцов
+process_results --> lab_db: Результаты анализов
+process_results --> patient : Результаты\n(email)
+process_results --> med_card : Результаты\n(email)
+
+@enduml

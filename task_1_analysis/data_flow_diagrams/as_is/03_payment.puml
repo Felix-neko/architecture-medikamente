@@ -1,0 +1,74 @@
+@startuml
+' Диаграмма потока данных: Оплата медицинских процедур
+left to right direction
+title DFD: Оплата медицинских процедур самим пациентом
+
+' Определяем process как прямоугольник
+!define process rectangle
+
+' -----------------------------------------------------------
+' НАСТРОЙКИ СТИЛЕЙ
+' -----------------------------------------------------------
+
+' 1. Стиль ПО УМОЛЧАНИЮ для всех rectangle (наши Процессы)
+' Мы делаем его красным и скругленным.
+skinparam rectangle {
+    RoundCorner 20
+    BackgroundColor #FFCCCC
+    BorderColor Black
+}
+
+' 2. Стиль для Внешних процессов
+skinparam rectangle<<external_process>> {
+    RoundCorner 20
+    BackgroundColor #E0E0E0
+    BorderColor Black
+}
+
+' Настройки баз данных
+skinparam database {
+    BackgroundColor #CCE5FF
+}
+skinparam database<<external>> {
+    BackgroundColor #E0E0E0
+}
+
+' Участники (человечки)
+actor "Пациент" as patient
+actor "Администратор\nрегистратуры" as admin
+actor "Кассир" as cashier
+
+' Хранилища данных
+database "Журнал записей" as schedule_db
+database "Папка МК пациента" as med_card_folder
+database "1С:Бухгалтерия" as accounting
+
+' Внешние системы
+database "Кассовый\nаппарат" as cash_register
+
+' -----------------------------------------------------------
+' ПРОЦЕССЫ
+' -----------------------------------------------------------
+process "Поиск записи\nпациента" as find_booking
+process "Печать\nталона" as print_ticket
+process "Ввод данных\nоб оплате" as enter_payment
+process "Проведение\nплатежа" as process_payment
+
+' Потоки данных
+patient --> admin: Инициирует\nоплату
+admin <--> find_booking : Запрос записи пациента
+find_booking <-- schedule_db : Данные о записях к специалисту\nза такой-то день
+admin --> print_ticket: ФИО пациента, номер записи,\nспециалист, дата, цена
+print_ticket --> patient: Талон на оплату
+
+patient --> cashier : Талон на оплату
+cashier --> enter_payment : Услуга, код, цена
+enter_payment --> accounting : Данные платежа
+accounting .. cash_register: 1С сообщает КЭ сумму и реквизиты,\nКЭ сообщает 1С статус проводки
+enter_payment --> cash_register : Сумма, реквизиты
+patient --> process_payment : Оплата\n(карта/наличные/QR)
+process_payment --> cash_register : Платёж
+cash_register --> patient : Чек
+cashier --> med_card_folder: Пометка об оплате записи
+
+@enduml

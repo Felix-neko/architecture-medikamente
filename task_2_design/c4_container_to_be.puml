@@ -1,0 +1,172 @@
+@startuml c4_container_to_be
+!include https://raw.githubusercontent.com/plantuml-stdlib/C4-PlantUML/master/C4_Container.puml
+
+' Стили для разделения собственной разработки и third-party
+AddElementTag("third-party", $bgColor="#f5f5f5", $borderColor="DarkGray", $fontColor="Black", $legendText="Компоненты сторонних производителей")
+AddElementTag("custom", $bgColor="#438DD5", $borderColor="#3C7FC0", $fontColor="white", $legendText="Собственная разработка")
+AddElementTag("parent-company", $bgColor="#FFE4B5", $borderColor="#D2691E", $fontColor="Black", $legendText="Сервисы материнской компании")
+
+title C4 Container Diagram: МЕДИКАМЕНТЕ (TO-BE)
+
+' Акторы
+Person(patient, "Пациент", "Клиент клиники, использует ЛК")
+Person(admin, "Администратор", "Сотрудник ресепшена")
+Person(doctor, "Врач", "Специалист-медик")
+Person(nurse, "Медсестра", "Направления на анализы")
+Person(cashier, "Кассир", "Приём оплаты")
+Person(analyst, "Аналитик", "Бизнес-аналитика")
+Person(bookkeeper, "Бухгалтер", "Финансовый учёт")
+
+' Kubernetes кластер
+System_Boundary(k8s, "Kubernetes Cluster (Selectel)") {
+    
+    ' Gateway layer
+    Container(webapp, "Web/Mobile App", "React, React Native", "ЛК пациента, интерфейсы сотрудников", $tags="custom")
+    Container(auth_proxy, "Auth Proxy", "Java/Go", "Управление сессиями, проверка JWT и ИС, RBAC+ABAC", $tags="custom")
+    
+    ' Core API services
+    Container(crm_api, "CRM API", "Java/Spring Boot", "Пациенты, записи, расписание, направления", $tags="custom")
+    Container(medrecord_api, "Med Record API", "Java/Spring Boot", "Медкарты, диагнозы, назначения", $tags="custom")
+    Container(consent_api, "Consent Manager API", "Java/Spring Boot", "Информированное согласие", $tags="custom")
+    
+    ' Identity & Security (third-party)
+    Container(keycloak, "Keycloak", "Identity Provider", "Аутентификация, User Federation по AD, TOTP/HOTP", $tags="third-party")
+    Container(vault, "HashiCorp Vault", "Secrets Management", "Ключи шифрования, пароли", $tags="third-party")
+    
+    ' Databases - отдельная БД для каждого сервиса
+    ContainerDb(crm_db, "crm_db", "PostgreSQL", "БД CRM API: patients, appointments, staff, directions", $tags="third-party")
+    ContainerDb(medrecord_db, "medrecord_db", "PostgreSQL", "БД Med Record API: medical_records, diagnoses, prescriptions", $tags="third-party")
+    ContainerDb(consent_db, "consent_db", "PostgreSQL", "БД Consent Manager: consents, audit_log", $tags="third-party")
+    ContainerDb(keycloak_db, "keycloak_db", "PostgreSQL", "БД Keycloak", $tags="third-party")
+    
+    ' Cache - отдельный Redis для каждого сервиса
+    ContainerDb(redis_auth, "Redis (Auth)", "Cache", "Кэш сессий Auth Proxy", $tags="third-party")
+    ContainerDb(redis_consent, "Redis (Consent)", "Cache", "Кэш ИС, FERNET-шифрование", $tags="third-party")
+    
+    ' Object storage
+    Container(minio, "MinIO", "S3 Storage", "Документы МК по папкам /patient_uuid/", $tags="third-party")
+    
+    ' Observability
+    ContainerDb(elastic, "ElasticSearch", "Log Storage", "Логи всех подов", $tags="third-party")
+    
+    ' Analytics layer
+    Container(airflow, "Apache Airflow", "Workflow Orchestration", "ETL: копирование → обезличивание → DLP → dlp_approved", $tags="third-party")
+    ContainerDb(clickhouse, "ClickHouse", "Analytics DB", "Слои: raw_data, anonymized, dlp_approved", $tags="third-party")
+    Container(openmetadata, "OpenMetadata", "Data Catalog", "Теги: pii, extra_protected, med_record, dlp_needed", $tags="third-party")
+    Container(classification_engine, "Classification Engine", "Python/Spark", "Обезличивание ПДн, интеграция с DLP", $tags="custom")
+}
+
+' VPS: 1С Бухгалтерия
+System_Boundary(vps_1c_buh, "VPS: 1С Бухгалтерия") {
+    Container(c1_buh, "1С: Бухгалтерия", "Сервер 1С", "Учёт платежей, зарплата, налоги", $tags="third-party")
+    ContainerDb(c1_buh_db, "1С БД", "PostgreSQL", "БД 1С: Бухгалтерия", $tags="third-party")
+}
+
+' VPS: 1С Склад
+System_Boundary(vps_1c_sklad, "VPS: 1С Склад") {
+    Container(c1_sklad, "1С: Склад", "Сервер 1С", "Учёт ТМЦ", $tags="third-party")
+    ContainerDb(c1_sklad_db, "1С БД", "PostgreSQL", "БД 1С: Склад", $tags="third-party")
+}
+
+' VPS: Windows (AD + Exchange)
+System_Boundary(vps_windows, "VPS: Windows Server") {
+    Container(ad, "Active Directory", "Windows Server", "Учётные записи сотрудников", $tags="third-party")
+    Container(exchange, "MS Exchange", "Windows Server", "Корпоративная почта", $tags="third-party")
+}
+
+' Локальное оборудование
+Container(kkm, "ККМ", "Hardware", "Контрольно-кассовые машины в филиалах", $tags="third-party")
+
+' Внешние системы (вход вручную через браузер)
+System_Ext(laboratory, "Laboratory Portal", "Веб-портал лаборатории-партнёра")
+System_Ext(insurance, "Insurance Portal", "Веб-портал страховой компании (ДМС)")
+System_Ext(google_auth, "Google Authenticator", "TOTP/HOTP приложение")
+
+' Сервисы материнской компании (SOC)
+System_Boundary(parent_soc, "SOC материнской компании") {
+    Container(maxpatrol, "MaxPatrol SIEM", "Positive Technologies", "Сбор событий ИБ, корреляция, инциденты", $tags="parent-company")
+    Container(infowatch, "InfoWatch Traffic Monitor", "DLP System", "Контроль утечек данных, сканирование контента", $tags="parent-company")
+}
+
+' === СВЯЗИ ===
+
+' Пользователи -> Web App
+Rel(patient, webapp, "Запись, просмотр МК, ИС", "HTTPS")
+Rel(admin, webapp, "Регистрация, записи, ИС", "HTTPS")
+Rel(doctor, webapp, "Ведение МК", "HTTPS")
+Rel(nurse, webapp, "Направления, заявки на анализы", "HTTPS")
+Rel(cashier, webapp, "Поиск записи, оплата", "HTTPS")
+
+' Кассир -> внешние системы
+Rel(cashier, c1_buh, "Формирование счёта", "1С Thin Client")
+Rel(cashier, kkm, "Приём оплаты", "USB/TCP")
+
+' Администратор -> страховая (вручную)
+Rel(admin, insurance, "Заявка ДМС (копипаст)", "Browser")
+
+' Медсестра -> лаборатория (вручную)
+Rel(nurse, laboratory, "Заявка на анализы (копипаст)", "Browser")
+
+' Web App -> Auth Proxy
+Rel(webapp, auth_proxy, "Все API-запросы", "HTTPS")
+
+' Auth Proxy -> сервисы
+Rel(auth_proxy, keycloak, "Аутентификация", "OIDC")
+Rel(auth_proxy, consent_api, "Проверка ИС", "gRPC/REST")
+Rel(auth_proxy, crm_api, "Проксирование", "REST")
+Rel(auth_proxy, medrecord_api, "Проксирование (с проверкой ИС)", "REST")
+Rel(auth_proxy, minio, "Проксирование (с проверкой ИС)", "S3 API")
+Rel(auth_proxy, redis_auth, "Сессии", "Redis Protocol")
+
+' Core API -> Storage (каждый сервис со своей БД)
+Rel(crm_api, crm_db, "CRUD", "JDBC")
+Rel(crm_api, keycloak, "Создание аккаунтов", "Admin API")
+Rel(medrecord_api, medrecord_db, "CRUD", "JDBC")
+Rel(medrecord_api, minio, "Документы", "S3 API")
+Rel(consent_api, consent_db, "CRUD", "JDBC")
+Rel(consent_api, redis_consent, "Кэш ИС", "Redis Protocol")
+Rel(keycloak, keycloak_db, "CRUD", "JDBC")
+Rel(keycloak, google_auth, "TOTP credential", "QR Code")
+
+' Security
+Rel(keycloak, ad, "User Federation", "LDAPS")
+Rel(vault, auth_proxy, "Секреты", "Vault API")
+Rel(vault, crm_api, "Ключи pgcrypto", "Vault API")
+Rel(vault, medrecord_api, "Ключи pgcrypto", "Vault API")
+Rel(vault, consent_api, "Ключи FERNET", "Vault API")
+
+' Логирование
+Rel(crm_api, elastic, "Логи", "HTTP")
+Rel(medrecord_api, elastic, "Логи", "HTTP")
+Rel(auth_proxy, elastic, "Логи запросов", "HTTP")
+
+' Analytics pipeline (ETL без Kafka/Debezium)
+Rel(airflow, crm_db, "Еженощный ETL", "JDBC")
+Rel(airflow, medrecord_db, "Еженощный ETL", "JDBC")
+Rel(airflow, classification_engine, "Запуск обезличивания", "Python Operator")
+Rel(classification_engine, infowatch, "Проверка DLP", "REST API")
+Rel(classification_engine, clickhouse, "raw_data → anonymized → dlp_approved", "JDBC")
+Rel(airflow, clickhouse, "Копирование данных", "JDBC")
+Rel(openmetadata, clickhouse, "Метаданные", "JDBC")
+Rel(openmetadata, crm_db, "Метаданные", "JDBC")
+Rel(openmetadata, medrecord_db, "Метаданные", "JDBC")
+Rel(airflow, openmetadata, "Проверка схемы", "REST API")
+
+' Аналитик
+Rel(analyst, clickhouse, "Запросы (dlp_approved)", "JDBC/HTTP")
+
+' Бухгалтерия
+Rel(bookkeeper, c1_buh, "Учёт", "1С Thin Client")
+Rel(c1_buh, c1_buh_db, "CRUD", "JDBC")
+Rel(c1_sklad, c1_sklad_db, "CRUD", "JDBC")
+Rel(c1_buh, c1_sklad, "Обмен", "COM/OLE")
+Rel(c1_buh, kkm, "Платежи", "TCP/IP")
+
+' SIEM и DLP
+Rel(elastic, maxpatrol, "События безопасности", "Syslog/API")
+Rel(auth_proxy, maxpatrol, "События аутентификации", "Syslog")
+Rel(minio, infowatch, "Сканирование файлов", "ICAP")
+Rel(clickhouse, infowatch, "Аудит выгрузок", "REST API")
+
+SHOW_LEGEND()
+@enduml

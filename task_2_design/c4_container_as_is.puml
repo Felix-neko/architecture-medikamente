@@ -1,0 +1,70 @@
+@startuml c4_container_as_is
+!include https://raw.githubusercontent.com/plantuml-stdlib/C4-PlantUML/master/C4_Container.puml
+
+' Стили для разделения компонентов
+AddElementTag("third-party", $bgColor="#f5f5f5", $borderColor="DarkGray", $fontColor="Black", $legendText="Компоненты сторонних производителей")
+AddElementTag("legacy", $bgColor="#FFCDD2", $borderColor="#B71C1C", $fontColor="Black", $legendText="Legacy-компоненты (небезопасные)")
+
+title C4 Container Diagram: МЕДИКАМЕНТЕ (AS-IS)
+
+' Акторы
+Person(patient, "Пациент", "Клиент клиники")
+Person(admin, "Администратор", "Сотрудник ресепшена")
+Person(doctor, "Врач", "Специалист-медик")
+Person(bookkeeper, "Бухгалтер", "Финансовый учёт")
+Person(cassier, "Кассир", "Приём платежей")
+Person(warehouse, "Кладовщик", "Учёт ТМЦ")
+
+' Граница системы
+System_Boundary(medikamente, "МЕДИКАМЕНТЕ") {
+    
+    ' Файловый сервер
+    Container_Boundary(fileserver, "FileServer (Windows Server 2022)") {
+        
+        ' Папка журналов записей
+        Container(journals, "Journals", "Папка", "Excel-файлы журналов записей к специалистам", $tags="legacy")
+        
+        ' Папка пациентов
+        Container(patients_folder, "Patients", "Папка", "Папки медкарт пациентов", $tags="legacy")
+        Container(patients_xlsx, "patients.xlsx", "Excel", "Список пациентов (ПДн без шифрования)", $tags="legacy")
+        Container(patient_files, "Data files", "Any file", "Файлы медкарт: анкеты, сканы, результаты обследований", $tags="legacy")
+        
+        ' Лабораторный реестр
+        Container(lab_registry, "Laboratory Registry", "Папка", "Реестры анализов по датам", $tags="legacy")
+    }
+    
+    ' Системы 1С
+    ContainerDb(c1_buh, "1С Бухгалтерия", "Файловый режим", "Учёт платежей, зарплата, налоги", $tags="third-party")
+    ContainerDb(c1_sklad, "1С Торговля и склад", "Файловый режим", "Учёт ТМЦ", $tags="third-party")
+    
+    ' Почта
+    Container(exchange, "Exchange Mail Server", "Microsoft Exchange", "Внутренняя почта", $tags="third-party")
+    
+    ' ККМ
+    Container(kkm, "ККМ", "Hardware", "Контрольно-кассовая машина", $tags="third-party")
+}
+
+' Внешняя система: лаборатория
+System_Ext(laboratory, "Laboratory", "Лаборатория-партнёр")
+
+' Связи акторов с системами
+Rel(patient, cassier, "Оплата услуг", "наличные/карта")
+Rel(admin, journals, "Запись пациентов", "SMB/CIFS")
+Rel(admin, patients_xlsx, "Регистрация пациентов", "SMB/CIFS")
+Rel(admin, patient_files, "Создание папки МК", "SMB/CIFS")
+Rel(doctor, journals, "Просмотр журнала", "SMB/CIFS")
+Rel(doctor, patient_files, "Ведение МК", "SMB/CIFS")
+Rel(bookkeeper, c1_buh, "Процессинг платежей", "1С клиент")
+Rel(warehouse, c1_sklad, "Учёт ТМЦ", "1С клиент")
+Rel(cassier, kkm, "Принятие оплаты", "")
+
+' Внутренние связи
+Rel(kkm, c1_buh, "Информация о платежах", "TCP/IP-OLE")
+Rel(c1_buh, c1_sklad, "Обмен данными", "OLE")
+
+' Связь с лабораторией (через медсестру)
+Rel(patient_files, laboratory, "Направления на анализы", "Веб-интерфейс")
+Rel(laboratory, lab_registry, "Результаты анализов", "Email")
+
+SHOW_LEGEND()
+@enduml

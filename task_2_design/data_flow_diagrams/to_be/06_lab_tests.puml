@@ -1,0 +1,82 @@
+@startuml
+' Диаграмма потока данных: Сдача лабораторных анализов (TO-BE)
+left to right direction
+title DFD: Сдача лабораторных анализов (TO-BE)
+
+!define process rectangle
+
+skinparam rectangle {
+    RoundCorner 20
+    BackgroundColor #CCFFCC
+    BorderColor Black
+}
+
+skinparam rectangle<<external_process>> {
+    RoundCorner 20
+    BackgroundColor #E0E0E0
+    BorderColor Black
+}
+
+skinparam database {
+    BackgroundColor #CCE5FF
+}
+skinparam database<<external>> {
+    BackgroundColor #E0E0E0
+}
+
+' -----------------------------------------------------------
+' УЧАСТНИКИ И ДАННЫЕ
+' -----------------------------------------------------------
+actor "Администратор\nили Врач" as creator
+actor "Медсестра" as nurse
+actor "Пациент" as patient
+
+database "CRM DB\n(PostgreSQL)" as crm_db
+database "Med Record DB\n(PostgreSQL)" as medrecord_db
+database "Consent DB\n(PostgreSQL)" as consent_db
+database "Портал\nлаборатории" <<external>> as lab_portal
+database "Email\n(результаты)" <<external>> as email
+
+' -----------------------------------------------------------
+' ПРОЦЕССЫ
+' -----------------------------------------------------------
+process "Web App\n(создание направления)" as webapp_create
+process "CRM API\n(сохранение направления)" as crm_save
+process "Web App\n(поиск направления)" as webapp_search
+process "Auth Proxy" as auth_proxy
+process "Consent Manager API" as consent_check
+process "CRM API\n(данные направления)" as crm_get
+process "Med Record API\n(клин. данные)" as medrecord_get
+process "Портал лаборатории\n(браузер)" <<external_process>> as lab_browser
+process "CRM API\n(отметка о взятии)" as crm_update
+process "Med Record API\n(внесение результатов)" as medrecord_save
+
+' -----------------------------------------------------------
+' ПОТОКИ ДАННЫХ
+' -----------------------------------------------------------
+creator --> webapp_create : Создание\nнаправления
+webapp_create --> crm_save : Сохранение
+crm_save --> crm_db : INSERT направление
+creator --> patient : Распечатка\nнаправления
+patient --> nurse : Показывает\nнаправление
+nurse --> webapp_search : Поиск направления
+webapp_search --> auth_proxy : Запрос
+auth_proxy --> consent_check : Проверка ИС
+consent_check <-- consent_db : ИС OK
+auth_proxy --> crm_get : Запрос направления
+crm_get <-- crm_db : Данные направления
+auth_proxy --> medrecord_get : Доп. клин. данные
+medrecord_get <-- medrecord_db : Клин. данные
+nurse --> lab_browser : Копипаст данных\n+ ФИО пациента
+lab_browser --> lab_portal : Заявка на анализы
+lab_portal --> nurse : Штрих-коды
+nurse --> patient : Пробирки\nсо штрих-кодом
+nurse --> auth_proxy : Отметка о взятии
+auth_proxy --> crm_update : UPDATE
+crm_update --> crm_db : status = taken,\n№ заявки
+lab_portal --> email : Результаты\nпо почте
+email --> nurse : Получение\nрезультатов
+nurse --> medrecord_save : Внесение результатов\n(вручную)
+medrecord_save --> medrecord_db : INSERT результаты
+
+@enduml

@@ -1,0 +1,63 @@
+@startuml
+' Диаграмма потока данных: Приём у врача
+left to right direction
+title DFD: Приём у врача / прохождение медицинских процедур
+
+' Определяем process как прямоугольник
+!define process rectangle
+
+' -----------------------------------------------------------
+' НАСТРОЙКИ СТИЛЕЙ
+' -----------------------------------------------------------
+
+' 1. Стиль ПО УМОЛЧАНИЮ для всех rectangle (наши Процессы)
+' Мы делаем его красным и скругленным.
+skinparam rectangle {
+    RoundCorner 20
+    BackgroundColor #FFCCCC
+    BorderColor Black
+}
+
+' 2. Стиль для Внешних процессов
+skinparam rectangle<<external_process>> {
+    RoundCorner 20
+    BackgroundColor #E0E0E0
+    BorderColor Black
+}
+
+' Настройки баз данных
+skinparam database {
+    BackgroundColor #CCE5FF
+}
+skinparam database<<external>> {
+    BackgroundColor #E0E0E0
+}
+
+' Участники (человечки)
+actor "Пациент" as patient
+actor "Врач" as doctor
+
+' Хранилища данных (базы данных)
+database "журнал записей\n(в сетевой папке)" as schedule_db
+database "мед. карта\n(сетевая папка)" as med_card
+
+' -----------------------------------------------------------
+' ПРОЦЕССЫ
+' -----------------------------------------------------------
+process "Отметка о\nприёме" as mark_visit
+process "Ведение\nприёма" as conduct_visit
+process "Документирование\nрезультатов" as document_results
+process "Выписка\nрецепта" as prescription
+
+' Потоки данных
+patient --> doctor : Жалобы, симптомы
+doctor --> mark_visit : ФИО пациента
+mark_visit --> schedule_db : Пометка:\nприём состоялся
+doctor --> conduct_visit : Осмотр пациента
+conduct_visit --> document_results : Симптомы, диагноз,\nназначения
+document_results --> med_card : описание приёма,\nдиагноз, назначения,\nдоп. файлы диагностики (УЗИ, ЭКГ и др.)\n
+
+doctor --> prescription : Назначение\nрецептурных препаратов
+prescription --> patient : Лист назначений,\nбумажный рецепт
+
+@enduml

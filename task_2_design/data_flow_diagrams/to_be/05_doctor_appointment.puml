@@ -1,0 +1,73 @@
+@startuml
+' Диаграмма потока данных: Приём у врача (TO-BE)
+left to right direction
+title DFD: Приём у врача (TO-BE)
+
+!define process rectangle
+
+skinparam rectangle {
+    RoundCorner 20
+    BackgroundColor #CCFFCC
+    BorderColor Black
+}
+
+skinparam rectangle<<external_process>> {
+    RoundCorner 20
+    BackgroundColor #E0E0E0
+    BorderColor Black
+}
+
+skinparam database {
+    BackgroundColor #CCE5FF
+}
+skinparam database<<external>> {
+    BackgroundColor #E0E0E0
+}
+
+' -----------------------------------------------------------
+' УЧАСТНИКИ И ДАННЫЕ
+' -----------------------------------------------------------
+actor "Врач" as doctor
+actor "Пациент" as patient
+
+database "Med Record DB\n(PostgreSQL)" as medrecord_db
+database "Consent DB\n(PostgreSQL)" as consent_db
+database "MinIO\n(файлы)" as minio
+database "ElasticSearch\n(логи)" as elastic
+
+' -----------------------------------------------------------
+' ПРОЦЕССЫ
+' -----------------------------------------------------------
+process "Web App\n(запрос МК)" as webapp_read
+process "Auth Proxy\n(проверка ИС)" as auth_proxy
+process "Consent Manager API\n(проверка ИС)" as consent_check
+process "Med Record API\n(чтение МК)" as medrecord_read
+process "Web App\n(запись протокола)" as webapp_write
+process "Med Record API\n(запись)" as medrecord_write
+process "Auth Proxy\n(доступ к MinIO)" as auth_proxy_minio
+
+' -----------------------------------------------------------
+' ПОТОКИ ДАННЫХ
+' -----------------------------------------------------------
+doctor --> webapp_read : Запрос МК\nпациента
+webapp_read --> auth_proxy : Запрос + JWT
+auth_proxy --> consent_check : doctor_uuid,\npatient_uuid
+consent_check <-- consent_db : Проверка ИС\n(+ срок давности)
+consent_check --> auth_proxy : ИС OK\n(за N дней)
+auth_proxy --> medrecord_read : Разрешён доступ
+medrecord_read <-- medrecord_db : Данные МК\n(расшифрованные)
+medrecord_read --> doctor : МК пациента
+doctor --> auth_proxy_minio : Запрос файлов
+auth_proxy_minio --> consent_check : Проверка ИС
+auth_proxy_minio <-- minio : Файлы из\n/patient_uuid/
+auth_proxy_minio --> doctor : Снимки,\nдокументы
+patient --> doctor : Жалобы,\nосмотр
+doctor --> webapp_write : Протокол,\nдиагноз, назначения
+webapp_write --> auth_proxy : Запрос + JWT
+auth_proxy --> medrecord_write : INSERT
+medrecord_write --> medrecord_db : Зашифрованные\nданные
+doctor --> auth_proxy_minio : Загрузка файлов
+auth_proxy_minio --> minio : Файлы в\n/patient_uuid/
+medrecord_write --> elastic : Лог: кто,\nкогда, что
+
+@enduml
